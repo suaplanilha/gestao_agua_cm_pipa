@@ -217,6 +217,123 @@ function apiCreateDespesa(payload) {
   });
 }
 
+function apiGetLastEntrega() {
+  return withApiResponse_('GET_LAST_ENTREGA', () => {
+    const rows = readEntityRows_('entregas')
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+
+    if (!rows.length) {
+      return {
+        kmFinal: 0,
+        hFinal: 0
+      };
+    }
+
+    const last = rows[0];
+    return {
+      kmFinal: Number(last.km_fim || 0),
+      hFinal: Number(last.h_fim || 0),
+      data: toIsoDate_(last.data_iso)
+    };
+  });
+}
+
+function apiUpdateEntrega(payload) {
+  return withApiResponse_('UPDATE_ENTREGA', () => {
+    const input = payload || {};
+    const uuid = String(input.uuid || '').trim();
+    assert_(uuid, 'UUID da entrega é obrigatório para edição.');
+
+    const current = findEntityByUuid_('entregas', uuid);
+    assert_(current && current.rowNumber, 'Entrega não encontrada.');
+
+    const dataIso = normalizeDate_(input.data || input.data_iso || current.record.data_iso);
+    const local = String((input.local ?? current.record.local) || '').trim();
+    const volume = normalizeNumber_(input.volume_m3 ?? input.volume ?? current.record.volume_m3);
+    const kmInic = normalizeNumber_(input.km_inic ?? input.kmInicial ?? current.record.km_inic);
+    const kmFim = normalizeNumber_(input.km_fim ?? input.kmFinal ?? current.record.km_fim);
+    const hInic = normalizeNumber_(input.h_inic ?? input.hInicial ?? current.record.h_inic);
+    const hFim = normalizeNumber_(input.h_fim ?? input.hFinal ?? current.record.h_fim);
+
+    assert_(local, 'Local é obrigatório.');
+    assert_(volume > 0, 'Volume deve ser maior que zero.');
+    assert_(kmFim >= kmInic, 'KM final deve ser maior ou igual ao KM inicial.');
+    assert_(hFim >= hInic, 'Horímetro final deve ser maior ou igual ao inicial.');
+
+    const updated = {
+      ...current.record,
+      updated_at: nowIso_(),
+      data_iso: dataIso,
+      local,
+      volume_m3: round2_(volume),
+      km_inic: round2_(kmInic),
+      km_fim: round2_(kmFim),
+      km_delta: round2_(kmFim - kmInic),
+      h_inic: round2_(hInic),
+      h_fim: round2_(hFim),
+      h_delta: round2_(hFim - hInic),
+      audit_user: getActiveUserEmail_()
+    };
+
+    updateEntityRow_('entregas', current.rowNumber, updated);
+    writeLog_('UPDATE_ENTREGA', `Entrega ${uuid} atualizada.`);
+    return { uuid };
+  });
+}
+
+function apiDeleteEntrega(uuid) {
+  return withApiResponse_('DELETE_ENTREGA', () => {
+    const id = String(uuid || '').trim();
+    assert_(id, 'UUID da entrega é obrigatório para exclusão.');
+    const row = findEntityByUuid_('entregas', id);
+    assert_(row && row.rowNumber, 'Entrega não encontrada.');
+    deleteEntityRow_('entregas', row.rowNumber);
+    writeLog_('DELETE_ENTREGA', `Entrega ${id} removida.`);
+    return { uuid: id };
+  });
+}
+
+function apiUpdateDespesa(payload) {
+  return withApiResponse_('UPDATE_DESPESA', () => {
+    const input = payload || {};
+    const uuid = String(input.uuid || '').trim();
+    assert_(uuid, 'UUID da despesa é obrigatório para edição.');
+
+    const current = findEntityByUuid_('despesas', uuid);
+    assert_(current && current.rowNumber, 'Despesa não encontrada.');
+
+    const valor = normalizeNumber_(input.valor ?? current.record.valor);
+    assert_(valor > 0, 'Valor da despesa deve ser maior que zero.');
+
+    const updated = {
+      ...current.record,
+      updated_at: nowIso_(),
+      data_iso: normalizeDate_(input.data || input.data_iso || current.record.data_iso),
+      categoria: String((input.categoria ?? current.record.categoria) || 'geral').trim() || 'geral',
+      descricao: String((input.descricao ?? current.record.descricao) || '').trim(),
+      valor: round2_(valor),
+      centro_custo: String((input.centro_custo ?? input.centroCusto ?? current.record.centro_custo) || '').trim(),
+      audit_user: getActiveUserEmail_()
+    };
+
+    updateEntityRow_('despesas', current.rowNumber, updated);
+    writeLog_('UPDATE_DESPESA', `Despesa ${uuid} atualizada.`);
+    return { uuid };
+  });
+}
+
+function apiDeleteDespesa(uuid) {
+  return withApiResponse_('DELETE_DESPESA', () => {
+    const id = String(uuid || '').trim();
+    assert_(id, 'UUID da despesa é obrigatório para exclusão.');
+    const row = findEntityByUuid_('despesas', id);
+    assert_(row && row.rowNumber, 'Despesa não encontrada.');
+    deleteEntityRow_('despesas', row.rowNumber);
+    writeLog_('DELETE_DESPESA', `Despesa ${id} removida.`);
+    return { uuid: id };
+  });
+}
+
 function apiListEntregas(filters) {
   return withApiResponse_('LIST_ENTREGAS', () => listEntregas_(filters || {}));
 }
@@ -320,6 +437,23 @@ function appendEntityRow_(entity, rowObject) {
   sheet.appendRow(row);
 }
 
+function updateEntityRow_(entity, rowNumber, rowObject) {
+  const ss = getSpreadsheet_();
+  const headers = ENTITY_SCHEMAS[entity];
+  assert_(headers, `Entidade inválida: ${entity}`);
+  const sheet = ss.getSheetByName(entity);
+  assert_(sheet, `Aba da entidade não encontrada: ${entity}`);
+  const row = headers.map((header) => rowObject[header] ?? '');
+  sheet.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
+}
+
+function deleteEntityRow_(entity, rowNumber) {
+  const ss = getSpreadsheet_();
+  const sheet = ss.getSheetByName(entity);
+  assert_(sheet, `Aba da entidade não encontrada: ${entity}`);
+  sheet.deleteRow(rowNumber);
+}
+
 function readEntityRows_(entity) {
   const ss = getSpreadsheet_();
   const headers = ENTITY_SCHEMAS[entity];
@@ -336,6 +470,31 @@ function readEntityRows_(entity) {
     });
     return obj;
   });
+}
+
+function findEntityByUuid_(entity, uuid) {
+  const ss = getSpreadsheet_();
+  const headers = ENTITY_SCHEMAS[entity];
+  assert_(headers, `Entidade inválida: ${entity}`);
+  const sheet = ss.getSheetByName(entity);
+  assert_(sheet, `Aba da entidade não encontrada: ${entity}`);
+  if (sheet.getLastRow() <= 1) return null;
+
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  const uuidIdx = headers.indexOf('uuid');
+  for (let i = 0; i < data.length; i += 1) {
+    if (String(data[i][uuidIdx]) === uuid) {
+      const record = {};
+      headers.forEach((h, idx) => {
+        record[h] = data[i][idx];
+      });
+      return {
+        rowNumber: i + 2,
+        record
+      };
+    }
+  }
+  return null;
 }
 
 function listEntregas_(filters) {

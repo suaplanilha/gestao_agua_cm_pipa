@@ -58,9 +58,14 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
         @media print {
+            @page { size: A4 portrait; margin: 12mm; }
             .no-print { display: none !important; }
             body { background: white; color: black; }
             .glass-card { border: 1px solid #ddd; background: white; backdrop-filter: none; }
+            #printArea { font-size: 11pt; line-height: 1.45; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            th, td { white-space: nowrap; }
         }
         .loader-google {
             width: 48px;
@@ -157,17 +162,23 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                         <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
-                            <th class="p-4">Data</th><th class="p-4">Local</th><th class="p-4">Volume (m³)</th><th class="p-4">KM/Horímetro</th><th class="p-4">Status</th>
+                            <th class="p-4">Data</th><th class="p-4">Local</th><th class="p-4">Volume (m³)</th><th class="p-4">KM/Horímetro</th><th class="p-4">Status</th><th class="p-4">Ações</th>
                         </tr>
                         </thead>
                         <tbody class="text-sm">
-                        <tr v-if="entregas.length === 0"><td colspan="5" class="p-6 text-center text-gray-400">Sem entregas no período.</td></tr>
+                        <tr v-if="entregas.length === 0"><td colspan="6" class="p-6 text-center text-gray-400">Sem entregas no período.</td></tr>
                         <tr v-for="item in entregas" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
-                            <td class="p-4">{{ item.data }}</td>
+                            <td class="p-4">{{ fmtDateBr(item.data) }}</td>
                             <td class="p-4 font-medium">{{ item.local }}</td>
                             <td class="p-4">{{ fmtNum(item.volume) }}m³</td>
                             <td class="p-4 text-gray-400">{{ fmtNum(item.kmDelta) }}km | {{ fmtNum(item.hDelta) }}h</td>
                             <td class="p-4"><span class="px-2 py-1 rounded-full text-[10px] bg-green-500/20 text-green-400 border border-green-500/30">{{ item.status }}</span></td>
+                            <td class="p-4">
+                                <div class="flex gap-2">
+                                    <button @click="openEditEntrega(item)" class="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Editar</button>
+                                    <button @click="deleteEntrega(item.id)" class="text-xs px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">Excluir</button>
+                                </div>
+                            </td>
                         </tr>
                         </tbody>
                     </table>
@@ -179,16 +190,22 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                         <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
-                            <th class="p-4">Data</th><th class="p-4">Categoria</th><th class="p-4">Descrição</th><th class="p-4 text-right">Valor (R$)</th>
+                            <th class="p-4">Data</th><th class="p-4">Categoria</th><th class="p-4">Descrição</th><th class="p-4 text-right">Valor (R$)</th><th class="p-4">Ações</th>
                         </tr>
                         </thead>
                         <tbody class="text-sm">
-                        <tr v-if="despesas.length === 0"><td colspan="4" class="p-6 text-center text-gray-400">Sem despesas no período.</td></tr>
+                        <tr v-if="despesas.length === 0"><td colspan="5" class="p-6 text-center text-gray-400">Sem despesas no período.</td></tr>
                         <tr v-for="item in despesas" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
-                            <td class="p-4">{{ item.data }}</td>
+                            <td class="p-4">{{ fmtDateBr(item.data) }}</td>
                             <td class="p-4">{{ item.categoria }}</td>
                             <td class="p-4">{{ item.descricao || '-' }}</td>
                             <td class="p-4 text-right">{{ fmtCurrency(item.valor) }}</td>
+                            <td class="p-4">
+                                <div class="flex gap-2">
+                                    <button @click="openEditDespesa(item)" class="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Editar</button>
+                                    <button @click="deleteDespesa(item.id)" class="text-xs px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">Excluir</button>
+                                </div>
+                            </td>
                         </tr>
                         </tbody>
                     </table>
@@ -271,7 +288,7 @@
     <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
         <div class="glass-card w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
             <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
-                <h3 class="text-lg font-bold">{{ modalType === 'despesa' ? 'Nova Despesa' : 'Nova Entrega de Água' }}</h3>
+                <h3 class="text-lg font-bold">{{ modalTitle }}</h3>
                 <button @click="showModal = false" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
             </div>
             <form v-if="modalType === 'entrega'" @submit.prevent="saveEntry" class="p-6 space-y-4">
@@ -286,7 +303,7 @@
                 </div>
                 <div class="pt-4 flex gap-3">
                     <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
-                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : 'Confirmar Lançamento' }}</button>
+                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : (editingEntregaId ? 'Salvar Edição' : 'Confirmar Lançamento') }}</button>
                 </div>
             </form>
             <form v-else @submit.prevent="saveExpense" class="p-6 space-y-4">
@@ -301,7 +318,7 @@
                 </div>
                 <div class="pt-4 flex gap-3">
                     <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
-                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : 'Confirmar Despesa' }}</button>
+                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : (editingDespesaId ? 'Salvar Edição' : 'Confirmar Despesa') }}</button>
                 </div>
             </form>
         </div>
@@ -327,6 +344,8 @@ createApp({
         const submitting = ref(false);
         const showModal = ref(false);
         const modalType = ref('entrega');
+        const editingEntregaId = ref('');
+        const editingDespesaId = ref('');
         const errorMessage = ref('');
         const filterMonth = ref(currentMonthLocal());
 
@@ -373,6 +392,12 @@ createApp({
         });
 
         const activeMenuLabel = computed(() => menu.find(m => m.id === currentTab.value)?.label || 'Dashboard');
+        const modalTitle = computed(() => {
+            if (modalType.value === 'despesa') {
+                return editingDespesaId.value ? 'Editar Despesa' : 'Nova Despesa';
+            }
+            return editingEntregaId.value ? 'Editar Entrega de Água' : 'Nova Entrega de Água';
+        });
         const kpis = computed(() => ([
             { label: 'Volume Entregue', value: `${fmtNum(dashboard.value.totalVolume)} m³`, icon: 'droplet', bg: 'bg-blue-600' },
             { label: 'Distância Rodada', value: `${fmtNum(dashboard.value.totalKm)} km`, icon: 'map-pin', bg: 'bg-indigo-600' },
@@ -492,6 +517,7 @@ createApp({
             errorMessage.value = '';
             try {
                 const payload = {
+                    uuid: editingEntregaId.value || undefined,
                     data: formData.value.data,
                     volume: formData.value.volume,
                     local: formData.value.local,
@@ -500,10 +526,12 @@ createApp({
                     hInicial: formData.value.hInicial,
                     hFinal: formData.value.hFinal
                 };
-                const resp = await runGAS('apiCreateEntrega', payload);
+                const fn = editingEntregaId.value ? 'apiUpdateEntrega' : 'apiCreateEntrega';
+                const resp = await runGAS(fn, payload);
                 if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao salvar entrega');
 
                 showModal.value = false;
+                editingEntregaId.value = '';
                 formData.value = { data: todayIsoLocal(), volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
                 await reloadAll();
             } catch (err) {
@@ -518,16 +546,19 @@ createApp({
             errorMessage.value = '';
             try {
                 const payload = {
+                    uuid: editingDespesaId.value || undefined,
                     data: expenseForm.value.data,
                     categoria: expenseForm.value.categoria,
                     descricao: expenseForm.value.descricao,
                     valor: expenseForm.value.valor,
                     centro_custo: expenseForm.value.centro_custo
                 };
-                const resp = await runGAS('apiCreateDespesa', payload);
+                const fn = editingDespesaId.value ? 'apiUpdateDespesa' : 'apiCreateDespesa';
+                const resp = await runGAS(fn, payload);
                 if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao salvar despesa');
 
                 showModal.value = false;
+                editingDespesaId.value = '';
                 expenseForm.value = { data: todayIsoLocal(), categoria: '', descricao: '', valor: '', centro_custo: '' };
                 await reloadAll();
             } catch (err) {
@@ -539,8 +570,71 @@ createApp({
 
         function openModal(type = 'entrega') {
             modalType.value = type;
+            editingEntregaId.value = '';
+            editingDespesaId.value = '';
+
+            if (type === 'entrega') {
+                formData.value = { data: todayIsoLocal(), volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
+                runGAS('apiGetLastEntrega').then((resp) => {
+                    if (!resp?.ok || !resp?.data) return;
+                    const km = Number(resp.data.kmFinal || 0);
+                    const h = Number(resp.data.hFinal || 0);
+                    formData.value.kmInicial = km ? String(km) : '';
+                    formData.value.hInicial = h ? String(h) : '';
+                }).catch(() => {});
+            } else {
+                expenseForm.value = { data: todayIsoLocal(), categoria: '', descricao: '', valor: '', centro_custo: '' };
+            }
             showModal.value = true;
             setTimeout(() => lucide.createIcons(), 10);
+        }
+
+        function openEditEntrega(item) {
+            modalType.value = 'entrega';
+            editingEntregaId.value = item.id;
+            formData.value = {
+                data: item.data,
+                volume: item.volume,
+                local: item.local,
+                kmInicial: item.kmInicial,
+                kmFinal: item.kmFinal,
+                hInicial: item.hInicial,
+                hFinal: item.hFinal
+            };
+            showModal.value = true;
+        }
+
+        function openEditDespesa(item) {
+            modalType.value = 'despesa';
+            editingDespesaId.value = item.id;
+            expenseForm.value = {
+                data: item.data,
+                categoria: item.categoria || '',
+                descricao: item.descricao || '',
+                valor: item.valor || '',
+                centro_custo: item.centroCusto || ''
+            };
+            showModal.value = true;
+        }
+
+        async function deleteEntrega(uuid) {
+            if (!window.confirm('Deseja realmente excluir esta entrega?')) return;
+            const resp = await runGAS('apiDeleteEntrega', uuid);
+            if (!resp.ok) {
+                errorMessage.value = resp?.error?.message || 'Falha ao excluir entrega.';
+                return;
+            }
+            await reloadAll();
+        }
+
+        async function deleteDespesa(uuid) {
+            if (!window.confirm('Deseja realmente excluir esta despesa?')) return;
+            const resp = await runGAS('apiDeleteDespesa', uuid);
+            if (!resp.ok) {
+                errorMessage.value = resp?.error?.message || 'Falha ao excluir despesa.';
+                return;
+            }
+            await reloadAll();
         }
 
         function printReport() { window.print(); }
@@ -551,12 +645,19 @@ createApp({
             const d = new Date(v);
             return d.toLocaleDateString('pt-BR');
         }
+        function fmtDateBr(v) {
+            if (!v) return '-';
+            const [y, m, d] = String(v).split('-');
+            if (y && m && d) return `${d}/${m}/${y}`;
+            return fmtDate(v);
+        }
 
         return {
             currentTab, loading, submitting, showModal, modalType, formData, expenseForm, menu,
+            editingEntregaId, editingDespesaId, modalTitle,
             activeMenuLabel, kpis, entregas, despesas, relatorio, filterMonth,
-            errorMessage, openModal, saveEntry, saveExpense, printReport, reloadAll,
-            fmtNum, fmtCurrency, fmtDate
+            errorMessage, openModal, openEditEntrega, openEditDespesa, deleteEntrega, deleteDespesa, saveEntry, saveExpense, printReport, reloadAll,
+            fmtNum, fmtCurrency, fmtDate, fmtDateBr
         };
     }
 }).mount('#app');
