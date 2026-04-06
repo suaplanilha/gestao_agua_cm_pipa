@@ -343,13 +343,13 @@ function listEntregas_(filters) {
   const limit = Number(filters.limit || 200);
 
   const rows = readEntityRows_('entregas')
-    .filter((r) => String(r.data_iso || '').slice(0, 7) === month)
-    .sort((a, b) => String(b.data_iso).localeCompare(String(a.data_iso)))
+    .filter((r) => monthFromValue_(r.data_iso) === month)
+    .sort((a, b) => toIsoDate_(b.data_iso).localeCompare(toIsoDate_(a.data_iso)))
     .slice(0, limit)
     .map((r) => ({
       id: r.uuid,
       uuid: r.uuid,
-      data: r.data_iso,
+      data: toIsoDate_(r.data_iso),
       local: r.local,
       volume: Number(r.volume_m3 || 0),
       kmInicial: Number(r.km_inic || 0),
@@ -369,12 +369,12 @@ function listDespesas_(filters) {
   const limit = Number(filters.limit || 200);
 
   const rows = readEntityRows_('despesas')
-    .filter((r) => String(r.data_iso || '').slice(0, 7) === month)
-    .sort((a, b) => String(b.data_iso).localeCompare(String(a.data_iso)))
+    .filter((r) => monthFromValue_(r.data_iso) === month)
+    .sort((a, b) => toIsoDate_(b.data_iso).localeCompare(toIsoDate_(a.data_iso)))
     .slice(0, limit)
     .map((r) => ({
       id: r.uuid,
-      data: r.data_iso,
+      data: toIsoDate_(r.data_iso),
       categoria: r.categoria,
       descricao: r.descricao,
       valor: Number(r.valor || 0),
@@ -433,7 +433,7 @@ function buildMonthlyReport_(month) {
   const entregas = listEntregas_({ month, limit: 10000 });
   const despesas = listDespesas_({ month, limit: 10000 });
   const abastecimentos = readEntityRows_('abastecimentos')
-    .filter((r) => String(r.data_iso || '').slice(0, 7) === month);
+    .filter((r) => monthFromValue_(r.data_iso) === month);
 
   const kmInic = entregas.length ? Math.min.apply(null, entregas.map((e) => e.kmInicial)) : 0;
   const kmFim = entregas.length ? Math.max.apply(null, entregas.map((e) => e.kmFinal)) : 0;
@@ -503,6 +503,29 @@ function normalizeDate_(value) {
   const match = /^\d{4}-\d{2}-\d{2}$/.test(str);
   assert_(match, 'Data deve estar em formato ISO yyyy-MM-dd.');
   return str;
+}
+
+function toIsoDate_(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]' && !Number.isNaN(value.getTime())) {
+    return Utilities.formatDate(value, TZ, 'yyyy-MM-dd');
+  }
+
+  const str = String(value || '').trim();
+  if (!str) return '';
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  const asDate = new Date(str);
+  if (!Number.isNaN(asDate.getTime())) {
+    return Utilities.formatDate(asDate, TZ, 'yyyy-MM-dd');
+  }
+
+  return str;
+}
+
+function monthFromValue_(value) {
+  const iso = toIsoDate_(value);
+  return iso ? iso.slice(0, 7) : '';
 }
 
 function sanitizeMonth_(value) {

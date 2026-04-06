@@ -108,8 +108,8 @@
                 <p class="text-gray-400 text-sm">Operação de Caminhão Único</p>
             </div>
             <div class="flex gap-3">
-                <button @click="openModal" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold">
-                    <i data-lucide="plus" class="w-4 h-4"></i> Nova Entrega
+                <button @click="openModal(currentTab === 'financeiro' ? 'despesa' : 'entrega')" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold">
+                    <i data-lucide="plus" class="w-4 h-4"></i> {{ currentTab === 'financeiro' ? 'Nova Despesa' : 'Nova Entrega' }}
                 </button>
             </div>
         </header>
@@ -271,10 +271,10 @@
     <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
         <div class="glass-card w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
             <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
-                <h3 class="text-lg font-bold">Nova Entrega de Água</h3>
+                <h3 class="text-lg font-bold">{{ modalType === 'despesa' ? 'Nova Despesa' : 'Nova Entrega de Água' }}</h3>
                 <button @click="showModal = false" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
             </div>
-            <form @submit.prevent="saveEntry" class="p-6 space-y-4">
+            <form v-if="modalType === 'entrega'" @submit.prevent="saveEntry" class="p-6 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div><label class="block text-xs text-gray-400 mb-1 uppercase">Data</label><input type="date" v-model="formData.data" class="input-sae" required></div>
                     <div><label class="block text-xs text-gray-400 mb-1 uppercase">Volume (m³)</label><input type="number" step="0.1" v-model="formData.volume" class="input-sae" required></div>
@@ -289,6 +289,21 @@
                     <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : 'Confirmar Lançamento' }}</button>
                 </div>
             </form>
+            <form v-else @submit.prevent="saveExpense" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Data</label><input type="date" v-model="expenseForm.data" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Categoria</label><input type="text" v-model="expenseForm.categoria" class="input-sae" placeholder="Ex: manutenção" required></div>
+                </div>
+                <div><label class="block text-xs text-gray-400 mb-1 uppercase">Descrição</label><input type="text" v-model="expenseForm.descricao" class="input-sae" placeholder="Descrição da despesa" required></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Valor (R$)</label><input type="number" step="0.01" min="0.01" v-model="expenseForm.valor" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Centro de Custo</label><input type="text" v-model="expenseForm.centro_custo" class="input-sae" placeholder="Opcional"></div>
+                </div>
+                <div class="pt-4 flex gap-3">
+                    <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
+                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : 'Confirmar Despesa' }}</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -298,12 +313,22 @@ const { createApp, ref, onMounted, computed, watch } = Vue;
 
 createApp({
     setup() {
+        const todayIsoLocal = () => {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+        const currentMonthLocal = () => todayIsoLocal().slice(0, 7);
+
         const currentTab = ref('dash');
         const loading = ref(true);
         const submitting = ref(false);
         const showModal = ref(false);
+        const modalType = ref('entrega');
         const errorMessage = ref('');
-        const filterMonth = ref(new Date().toISOString().slice(0, 7));
+        const filterMonth = ref(currentMonthLocal());
 
         const menu = [
             { id: 'dash', label: 'Dashboard', icon: 'layout-dashboard' },
@@ -331,13 +356,20 @@ createApp({
         });
 
         const formData = ref({
-            data: new Date().toISOString().split('T')[0],
+            data: todayIsoLocal(),
             volume: '',
             local: '',
             kmInicial: '',
             kmFinal: '',
             hInicial: '',
             hFinal: ''
+        });
+        const expenseForm = ref({
+            data: todayIsoLocal(),
+            categoria: '',
+            descricao: '',
+            valor: '',
+            centro_custo: ''
         });
 
         const activeMenuLabel = computed(() => menu.find(m => m.id === currentTab.value)?.label || 'Dashboard');
@@ -472,7 +504,7 @@ createApp({
                 if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao salvar entrega');
 
                 showModal.value = false;
-                formData.value = { data: new Date().toISOString().split('T')[0], volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
+                formData.value = { data: todayIsoLocal(), volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
                 await reloadAll();
             } catch (err) {
                 errorMessage.value = err.message || 'Erro ao salvar entrega.';
@@ -481,7 +513,32 @@ createApp({
             }
         }
 
-        function openModal() {
+        async function saveExpense() {
+            submitting.value = true;
+            errorMessage.value = '';
+            try {
+                const payload = {
+                    data: expenseForm.value.data,
+                    categoria: expenseForm.value.categoria,
+                    descricao: expenseForm.value.descricao,
+                    valor: expenseForm.value.valor,
+                    centro_custo: expenseForm.value.centro_custo
+                };
+                const resp = await runGAS('apiCreateDespesa', payload);
+                if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao salvar despesa');
+
+                showModal.value = false;
+                expenseForm.value = { data: todayIsoLocal(), categoria: '', descricao: '', valor: '', centro_custo: '' };
+                await reloadAll();
+            } catch (err) {
+                errorMessage.value = err.message || 'Erro ao salvar despesa.';
+            } finally {
+                submitting.value = false;
+            }
+        }
+
+        function openModal(type = 'entrega') {
+            modalType.value = type;
             showModal.value = true;
             setTimeout(() => lucide.createIcons(), 10);
         }
@@ -496,9 +553,9 @@ createApp({
         }
 
         return {
-            currentTab, loading, submitting, showModal, formData, menu,
+            currentTab, loading, submitting, showModal, modalType, formData, expenseForm, menu,
             activeMenuLabel, kpis, entregas, despesas, relatorio, filterMonth,
-            errorMessage, openModal, saveEntry, printReport, reloadAll,
+            errorMessage, openModal, saveEntry, saveExpense, printReport, reloadAll,
             fmtNum, fmtCurrency, fmtDate
         };
     }
