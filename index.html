@@ -113,8 +113,8 @@
                 <p class="text-gray-400 text-sm">Operação de Caminhão Único</p>
             </div>
             <div class="flex gap-3">
-                <button @click="openModal(currentTab === 'financeiro' ? 'despesa' : 'entrega')" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold">
-                    <i data-lucide="plus" class="w-4 h-4"></i> {{ currentTab === 'financeiro' ? 'Nova Despesa' : 'Nova Entrega' }}
+                <button @click="openModal(currentTab === 'financeiro' ? 'despesa' : (currentTab === 'abastecimentos' ? 'abastecimento' : 'entrega'))" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold">
+                    <i data-lucide="plus" class="w-4 h-4"></i> {{ currentTab === 'financeiro' ? 'Nova Despesa' : (currentTab === 'abastecimentos' ? 'Novo Abastecimento' : 'Nova Entrega') }}
                 </button>
             </div>
         </header>
@@ -212,6 +212,35 @@
                 </div>
             </div>
 
+            <div v-if="currentTab === 'abastecimentos'" class="space-y-4">
+                <div class="glass-card overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                        <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
+                            <th class="p-4">Data</th><th class="p-4">Posto</th><th class="p-4">KM/Hodômetro</th><th class="p-4">Litros</th><th class="p-4">R$/L</th><th class="p-4 text-right">Total (R$)</th><th class="p-4">Ações</th>
+                        </tr>
+                        </thead>
+                        <tbody class="text-sm">
+                        <tr v-if="abastecimentos.length === 0"><td colspan="7" class="p-6 text-center text-gray-400">Sem abastecimentos no período.</td></tr>
+                        <tr v-for="item in abastecimentos" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                            <td class="p-4">{{ fmtDateBr(item.data) }}</td>
+                            <td class="p-4">{{ item.posto || '-' }}</td>
+                            <td class="p-4">{{ fmtNum(item.kmAtual) }} km</td>
+                            <td class="p-4">{{ fmtNum(item.litros) }} L</td>
+                            <td class="p-4">{{ fmtCurrency(item.valorLitro) }}</td>
+                            <td class="p-4 text-right">{{ fmtCurrency(item.valorTotal) }}</td>
+                            <td class="p-4">
+                                <div class="flex gap-2">
+                                    <button @click="openEditAbastecimento(item)" class="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Editar</button>
+                                    <button @click="deleteAbastecimento(item.id)" class="text-xs px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">Excluir</button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div v-if="currentTab === 'relatorios'" class="space-y-6">
                 <div class="glass-card p-6 no-print">
                     <div class="flex flex-wrap gap-4 items-end">
@@ -262,22 +291,24 @@
                         </div>
                     </div>
 
-                    <h3 class="font-bold text-sm mb-3 uppercase tracking-wider text-slate-400">Detalhamento de Custos e Insumos</h3>
+                    <h3 class="font-bold text-sm mb-3 uppercase tracking-wider text-slate-400">Demonstrativo de Combustível</h3>
                     <table class="w-full text-sm mb-8">
                         <thead>
-                        <tr class="bg-slate-100 text-slate-600"><th class="p-3 text-left">Categoria</th><th class="p-3 text-left">Descrição</th><th class="p-3 text-right">Qtd/Litros</th><th class="p-3 text-right">Valor (R$)</th></tr>
+                        <tr class="bg-slate-100 text-slate-600"><th class="p-3 text-left">Data</th><th class="p-3 text-left">Posto</th><th class="p-3 text-right">KM/Hodômetro</th><th class="p-3 text-right">Litros</th><th class="p-3 text-right">R$/L</th><th class="p-3 text-right">Valor Total</th></tr>
                         </thead>
                         <tbody>
-                        <tr v-if="relatorio.custos.length === 0"><td colspan="4" class="p-3 text-center text-slate-500">Sem custos registrados no período.</td></tr>
-                        <tr v-for="(custo, idx) in relatorio.custos" :key="idx" class="border-b border-slate-100">
-                            <td class="p-3 font-semibold">{{ custo.categoria }}</td>
-                            <td class="p-3">{{ custo.descricao }}</td>
-                            <td class="p-3 text-right">{{ custo.quantidade }}</td>
-                            <td class="p-3 text-right">{{ fmtCurrency(custo.valor) }}</td>
+                        <tr v-if="relatorio.combustivel.length === 0"><td colspan="6" class="p-3 text-center text-slate-500">Sem abastecimentos registrados no período.</td></tr>
+                        <tr v-for="(abast, idx) in relatorio.combustivel" :key="idx" class="border-b border-slate-100">
+                            <td class="p-3">{{ fmtDateBr(abast.data) }}</td>
+                            <td class="p-3">{{ abast.posto }}</td>
+                            <td class="p-3 text-right">{{ fmtNum(abast.kmAtual) }} km</td>
+                            <td class="p-3 text-right">{{ fmtNum(abast.litros) }} L</td>
+                            <td class="p-3 text-right">{{ fmtCurrency(abast.valorLitro) }}</td>
+                            <td class="p-3 text-right">{{ fmtCurrency(abast.valorTotal) }}</td>
                         </tr>
                         </tbody>
                         <tfoot>
-                        <tr class="bg-slate-800 text-white font-bold"><td colspan="3" class="p-3 text-right">TOTAL DE DESPESAS</td><td class="p-3 text-right">{{ fmtCurrency(relatorio.resumo.totalDespesas) }}</td></tr>
+                        <tr class="bg-slate-800 text-white font-bold"><td colspan="5" class="p-3 text-right">TOTAL COMBUSTÍVEL</td><td class="p-3 text-right">{{ fmtCurrency(relatorio.resumo.totalCombustivel) }}</td></tr>
                         </tfoot>
                     </table>
                 </div>
@@ -306,7 +337,7 @@
                     <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : (editingEntregaId ? 'Salvar Edição' : 'Confirmar Lançamento') }}</button>
                 </div>
             </form>
-            <form v-else @submit.prevent="saveExpense" class="p-6 space-y-4">
+            <form v-else-if="modalType === 'despesa'" @submit.prevent="saveExpense" class="p-6 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div><label class="block text-xs text-gray-400 mb-1 uppercase">Data</label><input type="date" v-model="expenseForm.data" class="input-sae" required></div>
                     <div><label class="block text-xs text-gray-400 mb-1 uppercase">Categoria</label><input type="text" v-model="expenseForm.categoria" class="input-sae" placeholder="Ex: manutenção" required></div>
@@ -319,6 +350,23 @@
                 <div class="pt-4 flex gap-3">
                     <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
                     <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : (editingDespesaId ? 'Salvar Edição' : 'Confirmar Despesa') }}</button>
+                </div>
+            </form>
+            <form v-else @submit.prevent="saveAbastecimento" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Data</label><input type="date" v-model="fuelForm.data" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Posto</label><input type="text" v-model="fuelForm.posto" class="input-sae" placeholder="Nome do posto" required></div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">KM/Hodômetro</label><input type="number" step="0.1" v-model="fuelForm.km_atual" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Litros</label><input type="number" step="0.01" v-model="fuelForm.litros" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Valor por Litro (R$)</label><input type="number" step="0.01" v-model="fuelForm.valor_litro" class="input-sae" required></div>
+                </div>
+                <div><label class="block text-xs text-gray-400 mb-1 uppercase">Valor Total (R$)</label><input type="number" step="0.01" :value="fuelTotalCalculated" class="input-sae" readonly></div>
+                <div><label class="block text-xs text-gray-400 mb-1 uppercase">Observação</label><input type="text" v-model="fuelForm.observacao" class="input-sae" placeholder="Opcional"></div>
+                <div class="pt-4 flex gap-3">
+                    <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
+                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : (editingAbastecimentoId ? 'Salvar Edição' : 'Confirmar Abastecimento') }}</button>
                 </div>
             </form>
         </div>
@@ -346,12 +394,14 @@ createApp({
         const modalType = ref('entrega');
         const editingEntregaId = ref('');
         const editingDespesaId = ref('');
+        const editingAbastecimentoId = ref('');
         const errorMessage = ref('');
         const filterMonth = ref(currentMonthLocal());
 
         const menu = [
             { id: 'dash', label: 'Dashboard', icon: 'layout-dashboard' },
             { id: 'operacional', label: 'Operacional', icon: 'truck' },
+            { id: 'abastecimentos', label: 'Abastecimentos', icon: 'fuel' },
             { id: 'financeiro', label: 'Despesas', icon: 'dollar-sign' },
             { id: 'relatorios', label: 'Relatórios', icon: 'file-text' }
         ];
@@ -366,12 +416,13 @@ createApp({
             custosPorCategoria: []
         });
         const entregas = ref([]);
+        const abastecimentos = ref([]);
         const despesas = ref([]);
         const relatorio = ref({
             month: filterMonth.value,
             generatedAt: new Date().toISOString(),
-            resumo: { viagens: 0, volumeTotal: 0, kmInicial: 0, kmFinal: 0, kmTotal: 0, hInicial: 0, hFinal: 0, hTotal: 0, totalDespesas: 0 },
-            custos: []
+            resumo: { viagens: 0, volumeTotal: 0, kmInicial: 0, kmFinal: 0, kmTotal: 0, hInicial: 0, hFinal: 0, hTotal: 0, totalCombustivel: 0, totalLitros: 0, mediaValorLitro: 0 },
+            combustivel: []
         });
 
         const formData = ref({
@@ -390,13 +441,29 @@ createApp({
             valor: '',
             centro_custo: ''
         });
+        const fuelForm = ref({
+            data: todayIsoLocal(),
+            posto: '',
+            km_atual: '',
+            litros: '',
+            valor_litro: '',
+            observacao: ''
+        });
 
         const activeMenuLabel = computed(() => menu.find(m => m.id === currentTab.value)?.label || 'Dashboard');
         const modalTitle = computed(() => {
             if (modalType.value === 'despesa') {
                 return editingDespesaId.value ? 'Editar Despesa' : 'Nova Despesa';
             }
+            if (modalType.value === 'abastecimento') {
+                return editingAbastecimentoId.value ? 'Editar Abastecimento' : 'Novo Abastecimento';
+            }
             return editingEntregaId.value ? 'Editar Entrega de Água' : 'Nova Entrega de Água';
+        });
+        const fuelTotalCalculated = computed(() => {
+            const litros = Number(fuelForm.value.litros || 0);
+            const valorLitro = Number(fuelForm.value.valor_litro || 0);
+            return litros * valorLitro;
         });
         const kpis = computed(() => ([
             { label: 'Volume Entregue', value: `${fmtNum(dashboard.value.totalVolume)} m³`, icon: 'droplet', bg: 'bg-blue-600' },
@@ -430,6 +497,7 @@ createApp({
 
                 dashboard.value = resp.data.dashboard;
                 entregas.value = resp.data.entregas;
+                abastecimentos.value = resp.data.abastecimentos || [];
                 despesas.value = resp.data.despesas;
                 relatorio.value = resp.data.relatorio;
 
@@ -568,10 +636,39 @@ createApp({
             }
         }
 
+        async function saveAbastecimento() {
+            submitting.value = true;
+            errorMessage.value = '';
+            try {
+                const payload = {
+                    uuid: editingAbastecimentoId.value || undefined,
+                    data: fuelForm.value.data,
+                    posto: fuelForm.value.posto,
+                    km_atual: fuelForm.value.km_atual,
+                    litros: fuelForm.value.litros,
+                    valor_total: fuelTotalCalculated.value,
+                    observacao: fuelForm.value.observacao
+                };
+                const fn = editingAbastecimentoId.value ? 'apiUpdateAbastecimento' : 'apiCreateAbastecimento';
+                const resp = await runGAS(fn, payload);
+                if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao salvar abastecimento');
+
+                showModal.value = false;
+                editingAbastecimentoId.value = '';
+                fuelForm.value = { data: todayIsoLocal(), posto: '', km_atual: '', litros: '', valor_litro: '', observacao: '' };
+                await reloadAll();
+            } catch (err) {
+                errorMessage.value = err.message || 'Erro ao salvar abastecimento.';
+            } finally {
+                submitting.value = false;
+            }
+        }
+
         function openModal(type = 'entrega') {
             modalType.value = type;
             editingEntregaId.value = '';
             editingDespesaId.value = '';
+            editingAbastecimentoId.value = '';
 
             if (type === 'entrega') {
                 formData.value = { data: todayIsoLocal(), volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
@@ -584,6 +681,9 @@ createApp({
                 }).catch(() => {});
             } else {
                 expenseForm.value = { data: todayIsoLocal(), categoria: '', descricao: '', valor: '', centro_custo: '' };
+                if (type === 'abastecimento') {
+                    fuelForm.value = { data: todayIsoLocal(), posto: '', km_atual: '', litros: '', valor_litro: '', observacao: '' };
+                }
             }
             showModal.value = true;
             setTimeout(() => lucide.createIcons(), 10);
@@ -617,6 +717,20 @@ createApp({
             showModal.value = true;
         }
 
+        function openEditAbastecimento(item) {
+            modalType.value = 'abastecimento';
+            editingAbastecimentoId.value = item.id;
+            fuelForm.value = {
+                data: item.data,
+                posto: item.posto || '',
+                km_atual: item.kmAtual || '',
+                litros: item.litros || '',
+                valor_litro: item.valorLitro || '',
+                observacao: item.observacao || ''
+            };
+            showModal.value = true;
+        }
+
         async function deleteEntrega(uuid) {
             if (!window.confirm('Deseja realmente excluir esta entrega?')) return;
             const resp = await runGAS('apiDeleteEntrega', uuid);
@@ -632,6 +746,16 @@ createApp({
             const resp = await runGAS('apiDeleteDespesa', uuid);
             if (!resp.ok) {
                 errorMessage.value = resp?.error?.message || 'Falha ao excluir despesa.';
+                return;
+            }
+            await reloadAll();
+        }
+
+        async function deleteAbastecimento(uuid) {
+            if (!window.confirm('Deseja realmente excluir este abastecimento?')) return;
+            const resp = await runGAS('apiDeleteAbastecimento', uuid);
+            if (!resp.ok) {
+                errorMessage.value = resp?.error?.message || 'Falha ao excluir abastecimento.';
                 return;
             }
             await reloadAll();
@@ -654,9 +778,9 @@ createApp({
 
         return {
             currentTab, loading, submitting, showModal, modalType, formData, expenseForm, menu,
-            editingEntregaId, editingDespesaId, modalTitle,
-            activeMenuLabel, kpis, entregas, despesas, relatorio, filterMonth,
-            errorMessage, openModal, openEditEntrega, openEditDespesa, deleteEntrega, deleteDespesa, saveEntry, saveExpense, printReport, reloadAll,
+            fuelForm, fuelTotalCalculated, editingEntregaId, editingDespesaId, editingAbastecimentoId, modalTitle,
+            activeMenuLabel, kpis, entregas, abastecimentos, despesas, relatorio, filterMonth,
+            errorMessage, openModal, openEditEntrega, openEditDespesa, openEditAbastecimento, deleteEntrega, deleteDespesa, deleteAbastecimento, saveEntry, saveExpense, saveAbastecimento, printReport, reloadAll,
             fmtNum, fmtCurrency, fmtDate, fmtDateBr
         };
     }

@@ -134,6 +134,7 @@ function apiBootstrap(month) {
       month: refMonth,
       dashboard: buildDashboard_(refMonth),
       entregas: listEntregas_({ month: refMonth, limit: 200 }),
+      abastecimentos: listAbastecimentos_({ month: refMonth, limit: 200 }),
       despesas: listDespesas_({ month: refMonth, limit: 200 }),
       relatorio: buildMonthlyReport_(refMonth)
     };
@@ -353,6 +354,54 @@ function apiUpdateDespesa(payload) {
   });
 }
 
+function apiUpdateAbastecimento(payload) {
+  return withApiResponse_('UPDATE_ABASTECIMENTO', () => {
+    const input = payload || {};
+    const uuid = String(input.uuid || '').trim();
+    assert_(uuid, 'UUID do abastecimento é obrigatório para edição.');
+
+    const current = findEntityByUuid_('abastecimentos', uuid);
+    assert_(current && current.rowNumber, 'Abastecimento não encontrado.');
+
+    const litros = normalizeNumber_(input.litros ?? current.record.litros);
+    const valorTotal = normalizeNumber_(input.valor_total ?? input.valorTotal ?? current.record.valor_total);
+    const kmAtual = normalizeNumber_(input.km_atual ?? input.kmAtual ?? current.record.km_atual);
+    assert_(litros > 0, 'Litros deve ser maior que zero.');
+    assert_(valorTotal > 0, 'Valor total deve ser maior que zero.');
+
+    const updated = {
+      ...current.record,
+      updated_at: nowIso_(),
+      data_iso: normalizeDate_(input.data || input.data_iso || current.record.data_iso),
+      litros: round2_(litros),
+      valor_total: round2_(valorTotal),
+      valor_litro: round2_(valorTotal / litros),
+      km_atual: round2_(kmAtual),
+      posto: String((input.posto ?? current.record.posto) || '').trim(),
+      observacao: String((input.observacao ?? current.record.observacao) || '').trim(),
+      audit_user: getActiveUserEmail_()
+    };
+
+    updateEntityRow_('abastecimentos', current.rowNumber, updated);
+    invalidateDashboardCache_(updated.data_iso);
+    writeLog_('UPDATE_ABASTECIMENTO', `Abastecimento ${uuid} atualizado.`);
+    return { uuid };
+  });
+}
+
+function apiDeleteAbastecimento(uuid) {
+  return withApiResponse_('DELETE_ABASTECIMENTO', () => {
+    const id = String(uuid || '').trim();
+    assert_(id, 'UUID do abastecimento é obrigatório para exclusão.');
+    const row = findEntityByUuid_('abastecimentos', id);
+    assert_(row && row.rowNumber, 'Abastecimento não encontrado.');
+    invalidateDashboardCache_(row.record.data_iso);
+    deleteEntityRow_('abastecimentos', row.rowNumber);
+    writeLog_('DELETE_ABASTECIMENTO', `Abastecimento ${id} removido.`);
+    return { uuid: id };
+  });
+}
+
 function apiDeleteDespesa(uuid) {
   return withApiResponse_('DELETE_DESPESA', () => {
     const id = String(uuid || '').trim();
@@ -372,6 +421,10 @@ function apiListEntregas(filters) {
 
 function apiListDespesas(filters) {
   return withApiResponse_('LIST_DESPESAS', () => listDespesas_(filters || {}));
+}
+
+function apiListAbastecimentos(filters) {
+  return withApiResponse_('LIST_ABASTECIMENTOS', () => listAbastecimentos_(filters || {}));
 }
 
 function apiGetDashboard(month) {
@@ -584,6 +637,26 @@ function listDespesas_(filters) {
   return rows;
 }
 
+function listAbastecimentos_(filters) {
+  const month = sanitizeMonth_(filters.month || currentMonth_());
+  const limit = Number(filters.limit || 200);
+
+  return readEntityRows_('abastecimentos')
+    .filter((r) => monthFromValue_(r.data_iso) === month)
+    .sort((a, b) => toIsoDate_(b.data_iso).localeCompare(toIsoDate_(a.data_iso)))
+    .slice(0, limit)
+    .map((r) => ({
+      id: r.uuid,
+      data: toIsoDate_(r.data_iso),
+      litros: Number(r.litros || 0),
+      valorTotal: Number(r.valor_total || 0),
+      valorLitro: Number(r.valor_litro || 0),
+      kmAtual: Number(r.km_atual || 0),
+      posto: r.posto || '',
+      observacao: r.observacao || ''
+    }));
+}
+
 function buildDashboard_(month) {
   const entregas = listEntregas_({ month, limit: 10000 });
   const despesas = listDespesas_({ month, limit: 10000 });
@@ -649,17 +722,16 @@ function invalidateDashboardCache_(dateValue) {
 
 function buildMonthlyReport_(month) {
   const entregas = listEntregas_({ month, limit: 10000 });
-  const despesas = listDespesas_({ month, limit: 10000 });
-  const abastecimentos = readEntityRows_('abastecimentos')
-    .filter((r) => monthFromValue_(r.data_iso) === month);
+  const abastecimentos = listAbastecimentos_({ month, limit: 10000 });
 
   const kmInic = entregas.length ? Math.min.apply(null, entregas.map((e) => e.kmInicial)) : 0;
   const kmFim = entregas.length ? Math.max.apply(null, entregas.map((e) => e.kmFinal)) : 0;
   const hInic = entregas.length ? Math.min.apply(null, entregas.map((e) => e.hInicial)) : 0;
   const hFim = entregas.length ? Math.max.apply(null, entregas.map((e) => e.hFinal)) : 0;
 
-  const totalDespesas = despesas.reduce((acc, d) => acc + Number(d.valor || 0), 0);
-  const totalAbastecimentos = abastecimentos.reduce((acc, a) => acc + normalizeNumber_(a.valor_total || 0), 0);
+  const totalCombustivel = abastecimentos.reduce((acc, a) => acc + Number(a.valorTotal || 0), 0);
+  const totalLitros = abastecimentos.reduce((acc, a) => acc + Number(a.litros || 0), 0);
+  const mediaValorLitro = totalLitros > 0 ? round2_(totalCombustivel / totalLitros) : 0;
 
   return {
     month,
@@ -673,22 +745,18 @@ function buildMonthlyReport_(month) {
       hInicial: round2_(hInic),
       hFinal: round2_(hFim),
       hTotal: round2_(hFim - hInic),
-      totalDespesas: round2_(totalDespesas + totalAbastecimentos)
+      totalCombustivel: round2_(totalCombustivel),
+      totalLitros: round2_(totalLitros),
+      mediaValorLitro
     },
-    custos: [
-      ...abastecimentos.map((a) => ({
-        categoria: 'abastecimento',
-        descricao: a.posto || 'Abastecimento',
-        quantidade: `${round2_(normalizeNumber_(a.litros || 0))} L`,
-        valor: round2_(normalizeNumber_(a.valor_total || 0))
-      })),
-      ...despesas.map((d) => ({
-        categoria: d.categoria || 'despesa',
-        descricao: d.descricao || '-',
-        quantidade: d.centroCusto || '-',
-        valor: round2_(d.valor || 0)
-      }))
-    ]
+    combustivel: abastecimentos.map((a) => ({
+      data: a.data,
+      posto: a.posto || 'Abastecimento',
+      kmAtual: round2_(a.kmAtual),
+      litros: round2_(a.litros),
+      valorLitro: round2_(a.valorLitro),
+      valorTotal: round2_(a.valorTotal)
+    }))
   };
 }
 
