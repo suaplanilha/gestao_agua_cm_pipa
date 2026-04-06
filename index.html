@@ -4,23 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WaterERP SAE | Gestão de Caminhão Pipa</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-        
         :root {
             --glass-bg: rgba(17, 24, 39, 0.7);
             --glass-border: rgba(255, 255, 255, 0.1);
             --accent: #3b82f6;
         }
-
         body {
             font-family: 'Inter', sans-serif;
             background: radial-gradient(circle at top left, #1e293b, #0f172a);
@@ -28,30 +22,25 @@
             min-height: 100vh;
             overflow-x: hidden;
         }
-
         .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 1rem;
         }
-
         .sidebar-glass {
             background: rgba(15, 23, 42, 0.8);
             backdrop-filter: blur(20px);
             border-right: 1px solid var(--glass-border);
         }
-
         .btn-primary {
             background: linear-gradient(135deg, #3b82f6, #2563eb);
             transition: all 0.3s ease;
         }
-
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
         }
-
         .input-sae {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--glass-border);
@@ -60,27 +49,19 @@
             color: white;
             width: 100%;
         }
-
         .input-sae:focus {
             border-color: var(--accent);
             outline: none;
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
         }
-
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
-
         @media print {
             .no-print { display: none !important; }
-            .print-only { display: block !important; }
             body { background: white; color: black; }
             .glass-card { border: 1px solid #ddd; background: white; backdrop-filter: none; }
         }
-        
-        .print-only { display: none; }
-
         .loader-google {
             width: 48px;
             height: 48px;
@@ -91,406 +72,437 @@
             box-sizing: border-box;
             animation: rotation 1s linear infinite;
         }
-
-        @keyframes rotation {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes rotation { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
     </style>
 </head>
 <body>
-    <div id="app" class="flex min-h-screen">
-        <!-- Sidebar -->
-        <aside class="w-64 sidebar-glass fixed h-full z-50 no-print transition-all duration-300 hidden md:block">
-            <div class="p-6">
-                <div class="flex items-center gap-3 mb-10">
-                    <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <i data-lucide="droplets" class="text-white"></i>
-                    </div>
-                    <span class="text-xl font-bold tracking-tight">Water<span class="text-blue-500">ERP</span></span>
+<div id="app" class="flex min-h-screen">
+    <aside class="w-64 sidebar-glass fixed h-full z-50 no-print transition-all duration-300 hidden md:block">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-10">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <i data-lucide="droplets" class="text-white"></i>
                 </div>
-
-                <nav class="space-y-2">
-                    <a v-for="item in menu" :key="item.id" @click="currentTab = item.id"
-                       :class="['flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors', currentTab === item.id ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'hover:bg-white/5 text-gray-400']">
-                        <i :data-lucide="item.icon" class="w-5 h-5"></i>
-                        <span class="font-medium">{{ item.label }}</span>
-                    </a>
-                </nav>
+                <span class="text-xl font-bold tracking-tight">Water<span class="text-blue-500">ERP</span></span>
             </div>
-            
-            <div class="absolute bottom-6 left-6 right-6">
-                <div class="p-4 glass-card text-xs text-gray-500">
-                    <p>Padrão SAE v2.5</p>
-                    <p>© 2026 Apollo Enterprise</p>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="flex-1 md:ml-64 p-4 md:p-8">
-            <!-- Top Header -->
-            <header class="flex justify-between items-center mb-8 no-print">
-                <div>
-                    <h1 class="text-2xl font-bold">{{ activeMenuLabel }}</h1>
-                    <p class="text-gray-400 text-sm">Operação de Caminhão Único</p>
-                </div>
-                <div class="flex gap-3">
-                    <button @click="openModal('viagem')" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Nova Entrega
-                    </button>
-                </div>
-            </header>
-
-            <!-- Views -->
-            <div v-if="loading" class="flex flex-col items-center justify-center h-64">
-                <span class="loader-google"></span>
-                <p class="mt-4 text-gray-400 animate-pulse">Sincronizando com Banco SAE...</p>
-            </div>
-
-            <div v-else>
-                <!-- DASHBOARD VIEW -->
-                <div v-if="currentTab === 'dash'" class="space-y-6">
-                    <!-- KPIs -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div v-for="kpi in kpis" :key="kpi.label" class="glass-card p-5">
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="text-gray-400 text-sm font-medium">{{ kpi.label }}</span>
-                                <div :class="['p-2 rounded-lg', kpi.bg]">
-                                    <i :data-lucide="kpi.icon" class="w-4 h-4 text-white"></i>
-                                </div>
-                            </div>
-                            <div class="text-2xl font-bold">{{ kpi.value }}</div>
-                            <div class="text-xs mt-1" :class="kpi.trendColor">
-                                {{ kpi.trend }} em relação ao mês anterior
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Charts Row -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="glass-card p-6">
-                            <h3 class="font-bold mb-4 flex items-center gap-2">
-                                <i data-lucide="trending-up" class="w-4 h-4 text-blue-500"></i> Evolução de Entregas (m³)
-                            </h3>
-                            <canvas id="chartVolumetria" height="200"></canvas>
-                        </div>
-                        <div class="glass-card p-6">
-                            <h3 class="font-bold mb-4 flex items-center gap-2">
-                                <i data-lucide="pie-chart" class="w-4 h-4 text-purple-500"></i> Composição de Custos
-                            </h3>
-                            <canvas id="chartCustos" height="200"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- OPERACIONAL (LISTA) -->
-                <div v-if="currentTab === 'operacional'" class="space-y-4">
-                    <div class="glass-card overflow-hidden">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
-                                    <th class="p-4">Data</th>
-                                    <th class="p-4">Local</th>
-                                    <th class="p-4">Volume (m³)</th>
-                                    <th class="p-4">KM/Horímetro</th>
-                                    <th class="p-4">Status</th>
-                                    <th class="p-4">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm">
-                                <tr v-for="item in entregas" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
-                                    <td class="p-4">{{ item.data }}</td>
-                                    <td class="p-4 font-medium">{{ item.local }}</td>
-                                    <td class="p-4">{{ item.volume }}m³</td>
-                                    <td class="p-4 text-gray-400">
-                                        {{ item.kmFinal - item.kmInicial }}km | {{ (item.hFinal - item.hInicial).toFixed(1) }}h
-                                    </td>
-                                    <td class="p-4">
-                                        <span class="px-2 py-1 rounded-full text-[10px] bg-green-500/20 text-green-400 border border-green-500/30">Concluído</span>
-                                    </td>
-                                    <td class="p-4">
-                                        <button class="text-gray-500 hover:text-white"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- RELATÓRIOS MENSAL (MODO IMPRESSÃO) -->
-                <div v-if="currentTab === 'relatorios'" class="space-y-6">
-                    <div class="glass-card p-6 no-print">
-                        <div class="flex flex-wrap gap-4 items-end">
-                            <div class="flex-1 min-w-[200px]">
-                                <label class="block text-xs text-gray-400 mb-1 uppercase">Mês de Referência</label>
-                                <select v-model="filterMonth" class="input-sae">
-                                    <option value="2026-04">Abril / 2026</option>
-                                    <option value="2026-03">Março / 2026</option>
-                                </select>
-                            </div>
-                            <button @click="printReport" class="bg-white text-black px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-200">
-                                <i data-lucide="printer" class="w-4 h-4"></i> Gerar PDF / Imprimir
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Layout do Relatório de Impressão -->
-                    <div id="printArea" class="glass-card p-8 bg-white text-slate-900">
-                        <div class="flex justify-between items-start border-b-2 border-slate-200 pb-6 mb-6">
-                            <div>
-                                <h2 class="text-2xl font-black uppercase text-slate-800">Relatório Mensal de Operação</h2>
-                                <p class="text-slate-500 font-medium">Contrato: Operação Pipa #001 | Período: {{ filterMonth }}</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="font-bold text-blue-600">WaterERP SAE</p>
-                                <p class="text-xs text-slate-400">Gerado em: 06/04/2026</p>
-                            </div>
-                        </div>
-
-                        <!-- Grid de Totais Relatório -->
-                        <div class="grid grid-cols-3 gap-6 mb-8">
-                            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                                <p class="text-[10px] text-slate-400 uppercase font-bold">Kilometragem</p>
-                                <div class="flex justify-between items-end mt-1">
-                                    <span class="text-xs text-slate-500">Inic: 124.500 | Fim: 126.200</span>
-                                    <span class="text-xl font-black text-slate-800">1.700 km</span>
-                                </div>
-                            </div>
-                            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                                <p class="text-[10px] text-slate-400 uppercase font-bold">Horímetro</p>
-                                <div class="flex justify-between items-end mt-1">
-                                    <span class="text-xs text-slate-500">Inic: 4.210 | Fim: 4.380</span>
-                                    <span class="text-xl font-black text-slate-800">170.0 h</span>
-                                </div>
-                            </div>
-                            <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                                <p class="text-[10px] text-blue-400 uppercase font-bold">Volume Total</p>
-                                <div class="flex justify-between items-end mt-1">
-                                    <span class="text-xs text-blue-500">Viagens: 42</span>
-                                    <span class="text-xl font-black text-blue-700">420 m³</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <h3 class="font-bold text-sm mb-3 uppercase tracking-wider text-slate-400">Detalhamento de Custos e Insumos</h3>
-                        <table class="w-full text-sm mb-8">
-                            <thead>
-                                <tr class="bg-slate-100 text-slate-600">
-                                    <th class="p-3 text-left">Categoria</th>
-                                    <th class="p-3 text-left">Descrição</th>
-                                    <th class="p-3 text-right">Qtd/Litros</th>
-                                    <th class="p-3 text-right">Valor (R$)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr class="border-b border-slate-100">
-                                    <td class="p-3 font-semibold">Abastecimento</td>
-                                    <td class="p-3">Diesel S10 - Posto Central</td>
-                                    <td class="p-3 text-right">450 L</td>
-                                    <td class="p-3 text-right">2.700,00</td>
-                                </tr>
-                                <tr class="border-b border-slate-100">
-                                    <td class="p-3 font-semibold">Manutenção</td>
-                                    <td class="p-3">Troca de Óleo e Filtros</td>
-                                    <td class="p-3 text-right">1 un</td>
-                                    <td class="p-3 text-right">850,00</td>
-                                </tr>
-                            </tbody>
-                            <tfoot>
-                                <tr class="bg-slate-800 text-white font-bold">
-                                    <td colspan="3" class="p-3 text-right">TOTAL DE DESPESAS</td>
-                                    <td class="p-3 text-right">R$ 3.550,00</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Modais SAE -->
-        <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div class="glass-card w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
-                <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
-                    <h3 class="text-lg font-bold">Nova Entrega de Água</h3>
-                    <button @click="showModal = false" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
-                </div>
-                <form @submit.prevent="saveEntry" class="p-6 space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1 uppercase">Data</label>
-                            <input type="date" v-model="formData.data" class="input-sae" required>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1 uppercase">Volume (m³)</label>
-                            <input type="number" step="0.1" v-model="formData.volume" class="input-sae" placeholder="Ex: 10" required>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1 uppercase">Local de Entrega</label>
-                        <input type="text" v-model="formData.local" class="input-sae" placeholder="Nome do Cliente ou Obra" required>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="p-3 bg-white/5 rounded-lg border border-white/5">
-                            <span class="block text-[10px] text-blue-400 font-bold mb-2 uppercase">Kilometragem</span>
-                            <input type="number" v-model="formData.kmInicial" class="input-sae mb-2" placeholder="Inicial" required>
-                            <input type="number" v-model="formData.kmFinal" class="input-sae" placeholder="Final" required>
-                        </div>
-                        <div class="p-3 bg-white/5 rounded-lg border border-white/5">
-                            <span class="block text-[10px] text-purple-400 font-bold mb-2 uppercase">Horímetro</span>
-                            <input type="number" step="0.1" v-model="formData.hInicial" class="input-sae mb-2" placeholder="Inicial" required>
-                            <input type="number" step="0.1" v-model="formData.hFinal" class="input-sae" placeholder="Final" required>
-                        </div>
-                    </div>
-                    <div class="pt-4 flex gap-3">
-                        <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
-                        <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">
-                            {{ submitting ? 'Salvando...' : 'Confirmar Lançamento' }}
-                        </button>
-                    </div>
-                </form>
+            <nav class="space-y-2">
+                <a v-for="item in menu" :key="item.id" @click="currentTab = item.id"
+                   :class="['flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors', currentTab === item.id ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'hover:bg-white/5 text-gray-400']">
+                    <i :data-lucide="item.icon" class="w-5 h-5"></i>
+                    <span class="font-medium">{{ item.label }}</span>
+                </a>
+            </nav>
+        </div>
+        <div class="absolute bottom-6 left-6 right-6">
+            <div class="p-4 glass-card text-xs text-gray-500">
+                <p>Padrão SAE v3.0</p>
+                <p>© 2026 Apollo Enterprise</p>
             </div>
         </div>
+    </aside>
+
+    <main class="flex-1 md:ml-64 p-4 md:p-8">
+        <header class="flex justify-between items-center mb-8 no-print">
+            <div>
+                <h1 class="text-2xl font-bold">{{ activeMenuLabel }}</h1>
+                <p class="text-gray-400 text-sm">Operação de Caminhão Único</p>
+            </div>
+            <div class="flex gap-3">
+                <button @click="openModal" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Nova Entrega
+                </button>
+            </div>
+        </header>
+
+        <div v-if="errorMessage" class="mb-4 p-3 border border-red-500/30 bg-red-500/10 rounded-lg text-red-300 text-sm">
+            {{ errorMessage }}
+        </div>
+
+        <div v-if="loading" class="flex flex-col items-center justify-center h-64">
+            <span class="loader-google"></span>
+            <p class="mt-4 text-gray-400 animate-pulse">Sincronizando com Banco SAE...</p>
+        </div>
+
+        <div v-else>
+            <div v-if="currentTab === 'dash'" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div v-for="kpi in kpis" :key="kpi.label" class="glass-card p-5">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-gray-400 text-sm font-medium">{{ kpi.label }}</span>
+                            <div :class="['p-2 rounded-lg', kpi.bg]">
+                                <i :data-lucide="kpi.icon" class="w-4 h-4 text-white"></i>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold">{{ kpi.value }}</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="glass-card p-6">
+                        <h3 class="font-bold mb-4 flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-blue-500"></i> Evolução de Entregas (m³)
+                        </h3>
+                        <canvas id="chartVolumetria" height="200"></canvas>
+                    </div>
+                    <div class="glass-card p-6">
+                        <h3 class="font-bold mb-4 flex items-center gap-2">
+                            <i data-lucide="pie-chart" class="w-4 h-4 text-purple-500"></i> Composição de Custos
+                        </h3>
+                        <canvas id="chartCustos" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'operacional'" class="space-y-4">
+                <div class="glass-card overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                        <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
+                            <th class="p-4">Data</th><th class="p-4">Local</th><th class="p-4">Volume (m³)</th><th class="p-4">KM/Horímetro</th><th class="p-4">Status</th>
+                        </tr>
+                        </thead>
+                        <tbody class="text-sm">
+                        <tr v-if="entregas.length === 0"><td colspan="5" class="p-6 text-center text-gray-400">Sem entregas no período.</td></tr>
+                        <tr v-for="item in entregas" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                            <td class="p-4">{{ item.data }}</td>
+                            <td class="p-4 font-medium">{{ item.local }}</td>
+                            <td class="p-4">{{ fmtNum(item.volume) }}m³</td>
+                            <td class="p-4 text-gray-400">{{ fmtNum(item.kmDelta) }}km | {{ fmtNum(item.hDelta) }}h</td>
+                            <td class="p-4"><span class="px-2 py-1 rounded-full text-[10px] bg-green-500/20 text-green-400 border border-green-500/30">{{ item.status }}</span></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'financeiro'" class="space-y-4">
+                <div class="glass-card overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                        <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
+                            <th class="p-4">Data</th><th class="p-4">Categoria</th><th class="p-4">Descrição</th><th class="p-4 text-right">Valor (R$)</th>
+                        </tr>
+                        </thead>
+                        <tbody class="text-sm">
+                        <tr v-if="despesas.length === 0"><td colspan="4" class="p-6 text-center text-gray-400">Sem despesas no período.</td></tr>
+                        <tr v-for="item in despesas" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                            <td class="p-4">{{ item.data }}</td>
+                            <td class="p-4">{{ item.categoria }}</td>
+                            <td class="p-4">{{ item.descricao || '-' }}</td>
+                            <td class="p-4 text-right">{{ fmtCurrency(item.valor) }}</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'relatorios'" class="space-y-6">
+                <div class="glass-card p-6 no-print">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div class="flex-1 min-w-[200px]">
+                            <label class="block text-xs text-gray-400 mb-1 uppercase">Mês de Referência</label>
+                            <input type="month" v-model="filterMonth" class="input-sae">
+                        </div>
+                        <button @click="reloadAll" class="btn-primary px-6 py-2 rounded-lg font-bold">Atualizar</button>
+                        <button @click="printReport" class="bg-white text-black px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-200">
+                            <i data-lucide="printer" class="w-4 h-4"></i> Gerar PDF / Imprimir
+                        </button>
+                    </div>
+                </div>
+
+                <div id="printArea" class="glass-card p-8 bg-white text-slate-900">
+                    <div class="flex justify-between items-start border-b-2 border-slate-200 pb-6 mb-6">
+                        <div>
+                            <h2 class="text-2xl font-black uppercase text-slate-800">Relatório Mensal de Operação</h2>
+                            <p class="text-slate-500 font-medium">Contrato: Operação Pipa #001 | Período: {{ filterMonth }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-blue-600">WaterERP SAE</p>
+                            <p class="text-xs text-slate-400">Gerado em: {{ fmtDate(relatorio.generatedAt) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-6 mb-8">
+                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold">Kilometragem</p>
+                            <div class="flex justify-between items-end mt-1">
+                                <span class="text-xs text-slate-500">Inic: {{ fmtNum(relatorio.resumo.kmInicial) }} | Fim: {{ fmtNum(relatorio.resumo.kmFinal) }}</span>
+                                <span class="text-xl font-black text-slate-800">{{ fmtNum(relatorio.resumo.kmTotal) }} km</span>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold">Horímetro</p>
+                            <div class="flex justify-between items-end mt-1">
+                                <span class="text-xs text-slate-500">Inic: {{ fmtNum(relatorio.resumo.hInicial) }} | Fim: {{ fmtNum(relatorio.resumo.hFinal) }}</span>
+                                <span class="text-xl font-black text-slate-800">{{ fmtNum(relatorio.resumo.hTotal) }} h</span>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                            <p class="text-[10px] text-blue-400 uppercase font-bold">Volume Total</p>
+                            <div class="flex justify-between items-end mt-1">
+                                <span class="text-xs text-blue-500">Viagens: {{ relatorio.resumo.viagens }}</span>
+                                <span class="text-xl font-black text-blue-700">{{ fmtNum(relatorio.resumo.volumeTotal) }} m³</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="font-bold text-sm mb-3 uppercase tracking-wider text-slate-400">Detalhamento de Custos e Insumos</h3>
+                    <table class="w-full text-sm mb-8">
+                        <thead>
+                        <tr class="bg-slate-100 text-slate-600"><th class="p-3 text-left">Categoria</th><th class="p-3 text-left">Descrição</th><th class="p-3 text-right">Qtd/Litros</th><th class="p-3 text-right">Valor (R$)</th></tr>
+                        </thead>
+                        <tbody>
+                        <tr v-if="relatorio.custos.length === 0"><td colspan="4" class="p-3 text-center text-slate-500">Sem custos registrados no período.</td></tr>
+                        <tr v-for="(custo, idx) in relatorio.custos" :key="idx" class="border-b border-slate-100">
+                            <td class="p-3 font-semibold">{{ custo.categoria }}</td>
+                            <td class="p-3">{{ custo.descricao }}</td>
+                            <td class="p-3 text-right">{{ custo.quantidade }}</td>
+                            <td class="p-3 text-right">{{ fmtCurrency(custo.valor) }}</td>
+                        </tr>
+                        </tbody>
+                        <tfoot>
+                        <tr class="bg-slate-800 text-white font-bold"><td colspan="3" class="p-3 text-right">TOTAL DE DESPESAS</td><td class="p-3 text-right">{{ fmtCurrency(relatorio.resumo.totalDespesas) }}</td></tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="glass-card w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+                <h3 class="text-lg font-bold">Nova Entrega de Água</h3>
+                <button @click="showModal = false" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+            </div>
+            <form @submit.prevent="saveEntry" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Data</label><input type="date" v-model="formData.data" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Volume (m³)</label><input type="number" step="0.1" v-model="formData.volume" class="input-sae" required></div>
+                </div>
+                <div><label class="block text-xs text-gray-400 mb-1 uppercase">Local de Entrega</label><input type="text" v-model="formData.local" class="input-sae" required></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-3 bg-white/5 rounded-lg border border-white/5"><span class="block text-[10px] text-blue-400 font-bold mb-2 uppercase">Kilometragem</span><input type="number" v-model="formData.kmInicial" class="input-sae mb-2" placeholder="Inicial" required><input type="number" v-model="formData.kmFinal" class="input-sae" placeholder="Final" required></div>
+                    <div class="p-3 bg-white/5 rounded-lg border border-white/5"><span class="block text-[10px] text-purple-400 font-bold mb-2 uppercase">Horímetro</span><input type="number" step="0.1" v-model="formData.hInicial" class="input-sae mb-2" placeholder="Inicial" required><input type="number" step="0.1" v-model="formData.hFinal" class="input-sae" placeholder="Final" required></div>
+                </div>
+                <div class="pt-4 flex gap-3">
+                    <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
+                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : 'Confirmar Lançamento' }}</button>
+                </div>
+            </form>
+        </div>
     </div>
+</div>
 
-    <script>
-        const { createApp, ref, onMounted, computed, watch } = Vue;
+<script>
+const { createApp, ref, onMounted, computed, watch } = Vue;
 
-        createApp({
-            setup() {
-                const currentTab = ref('dash');
-                const loading = ref(true);
-                const submitting = ref(false);
-                const showModal = ref(false);
-                const filterMonth = ref('2026-04');
-                const menu = [
-                    { id: 'dash', label: 'Dashboard', icon: 'layout-dashboard' },
-                    { id: 'operacional', label: 'Operacional', icon: 'truck' },
-                    { id: 'financeiro', label: 'Despesas', icon: 'dollar-sign' },
-                    { id: 'relatorios', label: 'Relatórios', icon: 'file-text' }
-                ];
+createApp({
+    setup() {
+        const currentTab = ref('dash');
+        const loading = ref(true);
+        const submitting = ref(false);
+        const showModal = ref(false);
+        const errorMessage = ref('');
+        const filterMonth = ref(new Date().toISOString().slice(0, 7));
 
-                const activeMenuLabel = computed(() => menu.find(m => m.id === currentTab.value)?.label);
+        const menu = [
+            { id: 'dash', label: 'Dashboard', icon: 'layout-dashboard' },
+            { id: 'operacional', label: 'Operacional', icon: 'truck' },
+            { id: 'financeiro', label: 'Despesas', icon: 'dollar-sign' },
+            { id: 'relatorios', label: 'Relatórios', icon: 'file-text' }
+        ];
 
-                // Mock Data
-                const entregas = ref([
-                    { id: 1, data: '2026-04-05', local: 'Condomínio Solar', volume: 10, kmInicial: 124500, kmFinal: 124540, hInicial: 4210.5, hFinal: 4212.0 },
-                    { id: 2, data: '2026-04-05', local: 'Obra Rodovia BR', volume: 15, kmInicial: 124540, kmFinal: 124600, hInicial: 4212.0, hFinal: 4214.5 },
-                    { id: 3, data: '2026-04-04', local: 'Fazenda Boa Vista', volume: 10, kmInicial: 124400, kmFinal: 124500, hInicial: 4205.0, hFinal: 4210.5 },
-                ]);
+        const dashboard = ref({
+            totalVolume: 0,
+            totalKm: 0,
+            totalHoras: 0,
+            totalDespesas: 0,
+            custoPorM3: 0,
+            volumeSeries: { labels: [], data: [] },
+            custosPorCategoria: []
+        });
+        const entregas = ref([]);
+        const despesas = ref([]);
+        const relatorio = ref({
+            month: filterMonth.value,
+            generatedAt: new Date().toISOString(),
+            resumo: { viagens: 0, volumeTotal: 0, kmInicial: 0, kmFinal: 0, kmTotal: 0, hInicial: 0, hFinal: 0, hTotal: 0, totalDespesas: 0 },
+            custos: []
+        });
 
-                const kpis = ref([
-                    { label: 'Volume Entregue', value: '420 m³', icon: 'droplet', bg: 'bg-blue-600', trend: '+12%', trendColor: 'text-green-400' },
-                    { label: 'Distância Rodada', value: '1.700 km', icon: 'map-pin', bg: 'bg-indigo-600', trend: '-5%', trendColor: 'text-green-400' },
-                    { label: 'Horas Motor', value: '170.0 h', icon: 'clock', bg: 'bg-purple-600', trend: '+8%', trendColor: 'text-red-400' },
-                    { label: 'Custo/m³', value: 'R$ 8,45', icon: 'trending-down', bg: 'bg-emerald-600', trend: '-2%', trendColor: 'text-green-400' }
-                ]);
+        const formData = ref({
+            data: new Date().toISOString().split('T')[0],
+            volume: '',
+            local: '',
+            kmInicial: '',
+            kmFinal: '',
+            hInicial: '',
+            hFinal: ''
+        });
 
-                const formData = ref({
-                    data: new Date().toISOString().split('T')[0],
-                    volume: '',
-                    local: '',
-                    kmInicial: '',
-                    kmFinal: '',
-                    hInicial: '',
-                    hFinal: ''
-                });
+        const activeMenuLabel = computed(() => menu.find(m => m.id === currentTab.value)?.label || 'Dashboard');
+        const kpis = computed(() => ([
+            { label: 'Volume Entregue', value: `${fmtNum(dashboard.value.totalVolume)} m³`, icon: 'droplet', bg: 'bg-blue-600' },
+            { label: 'Distância Rodada', value: `${fmtNum(dashboard.value.totalKm)} km`, icon: 'map-pin', bg: 'bg-indigo-600' },
+            { label: 'Horas Motor', value: `${fmtNum(dashboard.value.totalHoras)} h`, icon: 'clock', bg: 'bg-purple-600' },
+            { label: 'Custo/m³', value: `R$ ${fmtNum(dashboard.value.custoPorM3)}`, icon: 'trending-down', bg: 'bg-emerald-600' }
+        ]));
 
-                onMounted(() => {
-                    setTimeout(() => {
-                        loading.value = false;
-                        setTimeout(() => {
-                            initCharts();
-                            lucide.createIcons();
-                        }, 100);
-                    }, 1500);
-                });
+        let chartVol = null;
+        let chartCustos = null;
 
-                watch(currentTab, (newTab) => {
-                    if (newTab === 'dash' && !loading.value) {
-                        setTimeout(() => initCharts(), 100);
-                    }
-                    setTimeout(() => lucide.createIcons(), 50);
-                });
+        onMounted(async () => {
+            await reloadAll();
+            setTimeout(() => lucide.createIcons(), 0);
+        });
 
-                function initCharts() {
-                    const ctxVol = document.getElementById('chartVolumetria');
-                    if (ctxVol) {
-                        new Chart(ctxVol, {
-                            type: 'line',
-                            data: {
-                                labels: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'],
-                                datasets: [{
-                                    label: 'Volume (m³)',
-                                    data: [80, 110, 95, 135],
-                                    borderColor: '#3b82f6',
-                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                    fill: true,
-                                    tension: 0.4
-                                }]
-                            },
-                            options: { 
-                                responsive: true,
-                                plugins: { legend: { display: false } },
-                                scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } }
-                            }
-                        });
-                    }
-
-                    const ctxCustos = document.getElementById('chartCustos');
-                    if (ctxCustos) {
-                        new Chart(ctxCustos, {
-                            type: 'doughnut',
-                            data: {
-                                labels: ['Diesel', 'Manutenção', 'Contrato', 'Outros'],
-                                datasets: [{
-                                    data: [2700, 850, 400, 150],
-                                    backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'],
-                                    borderWidth: 0
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 20 } } }
-                            }
-                        });
-                    }
-                }
-
-                function openModal(type) {
-                    showModal.value = true;
-                    setTimeout(() => lucide.createIcons(), 10);
-                }
-
-                async function saveEntry() {
-                    submitting.value = true;
-                    // Simulação de chamada Backend Google Apps Script
-                    // google.script.run.withSuccessHandler(...).saveToSheet(formData.value)
-                    
-                    setTimeout(() => {
-                        entregas.value.unshift({
-                            id: Date.now(),
-                            ...formData.value
-                        });
-                        showModal.value = false;
-                        submitting.value = false;
-                        // Reset form
-                        formData.value = { data: new Date().toISOString().split('T')[0], volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
-                    }, 1000);
-                }
-
-                function printReport() {
-                    window.print();
-                }
-
-                return {
-                    currentTab, menu, activeMenuLabel, loading, kpis, entregas,
-                    showModal, formData, submitting, filterMonth,
-                    openModal, saveEntry, printReport
-                };
+        watch(currentTab, (newTab) => {
+            if (newTab === 'dash') {
+                setTimeout(initCharts, 50);
             }
-        }).mount('#app');
-    </script>
+            setTimeout(() => lucide.createIcons(), 50);
+        });
+
+        async function reloadAll() {
+            loading.value = true;
+            errorMessage.value = '';
+            try {
+                await runGAS('setupDatabase');
+                const resp = await runGAS('apiBootstrap', filterMonth.value);
+                if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao carregar dados iniciais');
+
+                dashboard.value = resp.data.dashboard;
+                entregas.value = resp.data.entregas;
+                despesas.value = resp.data.despesas;
+                relatorio.value = resp.data.relatorio;
+
+                setTimeout(() => {
+                    initCharts();
+                    lucide.createIcons();
+                }, 100);
+            } catch (err) {
+                errorMessage.value = err.message || 'Erro inesperado ao sincronizar dados.';
+            } finally {
+                loading.value = false;
+            }
+        }
+
+        function runGAS(functionName, ...args) {
+            return new Promise((resolve, reject) => {
+                if (typeof google === 'undefined' || !google.script || !google.script.run) {
+                    reject(new Error('google.script.run indisponível neste contexto.'));
+                    return;
+                }
+
+                let runner = google.script.run
+                    .withSuccessHandler(resolve)
+                    .withFailureHandler((error) => reject(new Error(error?.message || error || 'Erro GAS')));
+
+                runner[functionName](...args);
+            });
+        }
+
+        function initCharts() {
+            const volEl = document.getElementById('chartVolumetria');
+            const custosEl = document.getElementById('chartCustos');
+
+            if (chartVol) { chartVol.destroy(); chartVol = null; }
+            if (chartCustos) { chartCustos.destroy(); chartCustos = null; }
+
+            if (volEl) {
+                chartVol = new Chart(volEl, {
+                    type: 'line',
+                    data: {
+                        labels: dashboard.value.volumeSeries.labels,
+                        datasets: [{
+                            label: 'Volume (m³)',
+                            data: dashboard.value.volumeSeries.data,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        }
+                    }
+                });
+            }
+
+            if (custosEl) {
+                const labels = dashboard.value.custosPorCategoria.map(item => item.categoria);
+                const data = dashboard.value.custosPorCategoria.map(item => item.valor);
+                chartCustos = new Chart(custosEl, {
+                    type: 'doughnut',
+                    data: {
+                        labels,
+                        datasets: [{
+                            data,
+                            backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#14b8a6', '#ef4444'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 20 } } }
+                    }
+                });
+            }
+        }
+
+        async function saveEntry() {
+            submitting.value = true;
+            errorMessage.value = '';
+            try {
+                const payload = {
+                    data: formData.value.data,
+                    volume: formData.value.volume,
+                    local: formData.value.local,
+                    kmInicial: formData.value.kmInicial,
+                    kmFinal: formData.value.kmFinal,
+                    hInicial: formData.value.hInicial,
+                    hFinal: formData.value.hFinal
+                };
+                const resp = await runGAS('apiCreateEntrega', payload);
+                if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao salvar entrega');
+
+                showModal.value = false;
+                formData.value = { data: new Date().toISOString().split('T')[0], volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
+                await reloadAll();
+            } catch (err) {
+                errorMessage.value = err.message || 'Erro ao salvar entrega.';
+            } finally {
+                submitting.value = false;
+            }
+        }
+
+        function openModal() {
+            showModal.value = true;
+            setTimeout(() => lucide.createIcons(), 10);
+        }
+
+        function printReport() { window.print(); }
+        function fmtNum(v) { return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+        function fmtCurrency(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+        function fmtDate(v) {
+            if (!v) return '-';
+            const d = new Date(v);
+            return d.toLocaleDateString('pt-BR');
+        }
+
+        return {
+            currentTab, loading, submitting, showModal, formData, menu,
+            activeMenuLabel, kpis, entregas, despesas, relatorio, filterMonth,
+            errorMessage, openModal, saveEntry, printReport, reloadAll,
+            fmtNum, fmtCurrency, fmtDate
+        };
+    }
+}).mount('#app');
+</script>
 </body>
 </html>
