@@ -36,6 +36,7 @@ const ENTITY_SCHEMAS = {
     'valor_total',
     'valor_litro',
     'km_atual',
+    'h_atual',
     'posto',
     'observacao',
     'audit_user'
@@ -192,6 +193,7 @@ function apiCreateAbastecimento(payload) {
     const litros = normalizeNumber_(input.litros);
     const valorTotal = normalizeNumber_(input.valor_total ?? input.valorTotal);
     const kmAtual = normalizeNumber_(input.km_atual ?? input.kmAtual);
+    const hAtual = normalizeNumber_(input.h_atual ?? input.hAtual);
 
     assert_(litros > 0, 'Litros deve ser maior que zero.');
     assert_(valorTotal > 0, 'Valor total deve ser maior que zero.');
@@ -205,6 +207,7 @@ function apiCreateAbastecimento(payload) {
       valor_total: round2_(valorTotal),
       valor_litro: round2_(valorTotal / litros),
       km_atual: round2_(kmAtual),
+      h_atual: round2_(hAtual),
       posto: String(input.posto || '').trim(),
       observacao: String(input.observacao || '').trim(),
       audit_user: getActiveUserEmail_()
@@ -366,6 +369,7 @@ function apiUpdateAbastecimento(payload) {
     const litros = normalizeNumber_(input.litros ?? current.record.litros);
     const valorTotal = normalizeNumber_(input.valor_total ?? input.valorTotal ?? current.record.valor_total);
     const kmAtual = normalizeNumber_(input.km_atual ?? input.kmAtual ?? current.record.km_atual);
+    const hAtual = normalizeNumber_(input.h_atual ?? input.hAtual ?? current.record.h_atual);
     assert_(litros > 0, 'Litros deve ser maior que zero.');
     assert_(valorTotal > 0, 'Valor total deve ser maior que zero.');
 
@@ -377,6 +381,7 @@ function apiUpdateAbastecimento(payload) {
       valor_total: round2_(valorTotal),
       valor_litro: round2_(valorTotal / litros),
       km_atual: round2_(kmAtual),
+      h_atual: round2_(hAtual),
       posto: String((input.posto ?? current.record.posto) || '').trim(),
       observacao: String((input.observacao ?? current.record.observacao) || '').trim(),
       audit_user: getActiveUserEmail_()
@@ -652,6 +657,7 @@ function listAbastecimentos_(filters) {
       valorTotal: Number(r.valor_total || 0),
       valorLitro: Number(r.valor_litro || 0),
       kmAtual: Number(r.km_atual || 0),
+      hAtual: Number(r.h_atual || 0),
       posto: r.posto || '',
       observacao: r.observacao || ''
     }));
@@ -753,6 +759,7 @@ function buildMonthlyReport_(month) {
       data: a.data,
       posto: a.posto || 'Abastecimento',
       kmAtual: round2_(a.kmAtual),
+      hAtual: round2_(a.hAtual),
       litros: round2_(a.litros),
       valorLitro: round2_(a.valorLitro),
       valorTotal: round2_(a.valorTotal)
