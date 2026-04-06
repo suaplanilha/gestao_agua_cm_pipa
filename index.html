@@ -3,24 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WaterERP SAE | Gestão de Caminhão Pipa</title>
-    <!-- Tailwind CSS -->
+    <title>Transparente | Gestão de Caminhão Pipa</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-        
         :root {
             --glass-bg: rgba(17, 24, 39, 0.7);
             --glass-border: rgba(255, 255, 255, 0.1);
             --accent: #3b82f6;
         }
-
         body {
             font-family: 'Inter', sans-serif;
             background: radial-gradient(circle at top left, #1e293b, #0f172a);
@@ -28,30 +22,25 @@
             min-height: 100vh;
             overflow-x: hidden;
         }
-
         .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 1rem;
         }
-
         .sidebar-glass {
             background: rgba(15, 23, 42, 0.8);
             backdrop-filter: blur(20px);
             border-right: 1px solid var(--glass-border);
         }
-
         .btn-primary {
             background: linear-gradient(135deg, #3b82f6, #2563eb);
             transition: all 0.3s ease;
         }
-
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
         }
-
         .input-sae {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--glass-border);
@@ -60,27 +49,48 @@
             color: white;
             width: 100%;
         }
-
         .input-sae:focus {
             border-color: var(--accent);
             outline: none;
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
         }
-
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
-
         @media print {
+            @page { size: A4 portrait; margin: 12mm; }
             .no-print { display: none !important; }
-            .print-only { display: block !important; }
             body { background: white; color: black; }
             .glass-card { border: 1px solid #ddd; background: white; backdrop-filter: none; }
+            #printArea { font-size: 11pt; line-height: 1.45; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            th, td { white-space: nowrap; }
         }
-        
-        .print-only { display: none; }
-
+        .report-block {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: #f8fafc;
+            line-height: 1.5;
+        }
+        .report-title {
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 0.35rem;
+        }
+        .report-line {
+            font-size: 0.95rem;
+            color: #1e293b;
+        }
+        .report-highlight {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
         .loader-google {
             width: 48px;
             height: 48px;
@@ -91,406 +101,785 @@
             box-sizing: border-box;
             animation: rotation 1s linear infinite;
         }
-
-        @keyframes rotation {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes rotation { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
     </style>
 </head>
 <body>
-    <div id="app" class="flex min-h-screen">
-        <!-- Sidebar -->
-        <aside class="w-64 sidebar-glass fixed h-full z-50 no-print transition-all duration-300 hidden md:block">
-            <div class="p-6">
-                <div class="flex items-center gap-3 mb-10">
-                    <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <i data-lucide="droplets" class="text-white"></i>
-                    </div>
-                    <span class="text-xl font-bold tracking-tight">Water<span class="text-blue-500">ERP</span></span>
+<div id="app" class="flex min-h-screen">
+    <aside class="w-64 sidebar-glass fixed h-full z-50 no-print transition-all duration-300 hidden md:block">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-10">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <i data-lucide="droplets" class="text-white"></i>
                 </div>
-
-                <nav class="space-y-2">
-                    <a v-for="item in menu" :key="item.id" @click="currentTab = item.id"
-                       :class="['flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors', currentTab === item.id ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'hover:bg-white/5 text-gray-400']">
-                        <i :data-lucide="item.icon" class="w-5 h-5"></i>
-                        <span class="font-medium">{{ item.label }}</span>
-                    </a>
-                </nav>
+                <span class="text-xl font-bold tracking-tight">Trans<span class="text-blue-500">parente</span></span>
             </div>
-            
-            <div class="absolute bottom-6 left-6 right-6">
-                <div class="p-4 glass-card text-xs text-gray-500">
-                    <p>Padrão SAE v2.5</p>
-                    <p>© 2026 Apollo Enterprise</p>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="flex-1 md:ml-64 p-4 md:p-8">
-            <!-- Top Header -->
-            <header class="flex justify-between items-center mb-8 no-print">
-                <div>
-                    <h1 class="text-2xl font-bold">{{ activeMenuLabel }}</h1>
-                    <p class="text-gray-400 text-sm">Operação de Caminhão Único</p>
-                </div>
-                <div class="flex gap-3">
-                    <button @click="openModal('viagem')" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Nova Entrega
-                    </button>
-                </div>
-            </header>
-
-            <!-- Views -->
-            <div v-if="loading" class="flex flex-col items-center justify-center h-64">
-                <span class="loader-google"></span>
-                <p class="mt-4 text-gray-400 animate-pulse">Sincronizando com Banco SAE...</p>
-            </div>
-
-            <div v-else>
-                <!-- DASHBOARD VIEW -->
-                <div v-if="currentTab === 'dash'" class="space-y-6">
-                    <!-- KPIs -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div v-for="kpi in kpis" :key="kpi.label" class="glass-card p-5">
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="text-gray-400 text-sm font-medium">{{ kpi.label }}</span>
-                                <div :class="['p-2 rounded-lg', kpi.bg]">
-                                    <i :data-lucide="kpi.icon" class="w-4 h-4 text-white"></i>
-                                </div>
-                            </div>
-                            <div class="text-2xl font-bold">{{ kpi.value }}</div>
-                            <div class="text-xs mt-1" :class="kpi.trendColor">
-                                {{ kpi.trend }} em relação ao mês anterior
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Charts Row -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="glass-card p-6">
-                            <h3 class="font-bold mb-4 flex items-center gap-2">
-                                <i data-lucide="trending-up" class="w-4 h-4 text-blue-500"></i> Evolução de Entregas (m³)
-                            </h3>
-                            <canvas id="chartVolumetria" height="200"></canvas>
-                        </div>
-                        <div class="glass-card p-6">
-                            <h3 class="font-bold mb-4 flex items-center gap-2">
-                                <i data-lucide="pie-chart" class="w-4 h-4 text-purple-500"></i> Composição de Custos
-                            </h3>
-                            <canvas id="chartCustos" height="200"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- OPERACIONAL (LISTA) -->
-                <div v-if="currentTab === 'operacional'" class="space-y-4">
-                    <div class="glass-card overflow-hidden">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
-                                    <th class="p-4">Data</th>
-                                    <th class="p-4">Local</th>
-                                    <th class="p-4">Volume (m³)</th>
-                                    <th class="p-4">KM/Horímetro</th>
-                                    <th class="p-4">Status</th>
-                                    <th class="p-4">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm">
-                                <tr v-for="item in entregas" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
-                                    <td class="p-4">{{ item.data }}</td>
-                                    <td class="p-4 font-medium">{{ item.local }}</td>
-                                    <td class="p-4">{{ item.volume }}m³</td>
-                                    <td class="p-4 text-gray-400">
-                                        {{ item.kmFinal - item.kmInicial }}km | {{ (item.hFinal - item.hInicial).toFixed(1) }}h
-                                    </td>
-                                    <td class="p-4">
-                                        <span class="px-2 py-1 rounded-full text-[10px] bg-green-500/20 text-green-400 border border-green-500/30">Concluído</span>
-                                    </td>
-                                    <td class="p-4">
-                                        <button class="text-gray-500 hover:text-white"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- RELATÓRIOS MENSAL (MODO IMPRESSÃO) -->
-                <div v-if="currentTab === 'relatorios'" class="space-y-6">
-                    <div class="glass-card p-6 no-print">
-                        <div class="flex flex-wrap gap-4 items-end">
-                            <div class="flex-1 min-w-[200px]">
-                                <label class="block text-xs text-gray-400 mb-1 uppercase">Mês de Referência</label>
-                                <select v-model="filterMonth" class="input-sae">
-                                    <option value="2026-04">Abril / 2026</option>
-                                    <option value="2026-03">Março / 2026</option>
-                                </select>
-                            </div>
-                            <button @click="printReport" class="bg-white text-black px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-200">
-                                <i data-lucide="printer" class="w-4 h-4"></i> Gerar PDF / Imprimir
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Layout do Relatório de Impressão -->
-                    <div id="printArea" class="glass-card p-8 bg-white text-slate-900">
-                        <div class="flex justify-between items-start border-b-2 border-slate-200 pb-6 mb-6">
-                            <div>
-                                <h2 class="text-2xl font-black uppercase text-slate-800">Relatório Mensal de Operação</h2>
-                                <p class="text-slate-500 font-medium">Contrato: Operação Pipa #001 | Período: {{ filterMonth }}</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="font-bold text-blue-600">WaterERP SAE</p>
-                                <p class="text-xs text-slate-400">Gerado em: 06/04/2026</p>
-                            </div>
-                        </div>
-
-                        <!-- Grid de Totais Relatório -->
-                        <div class="grid grid-cols-3 gap-6 mb-8">
-                            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                                <p class="text-[10px] text-slate-400 uppercase font-bold">Kilometragem</p>
-                                <div class="flex justify-between items-end mt-1">
-                                    <span class="text-xs text-slate-500">Inic: 124.500 | Fim: 126.200</span>
-                                    <span class="text-xl font-black text-slate-800">1.700 km</span>
-                                </div>
-                            </div>
-                            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                                <p class="text-[10px] text-slate-400 uppercase font-bold">Horímetro</p>
-                                <div class="flex justify-between items-end mt-1">
-                                    <span class="text-xs text-slate-500">Inic: 4.210 | Fim: 4.380</span>
-                                    <span class="text-xl font-black text-slate-800">170.0 h</span>
-                                </div>
-                            </div>
-                            <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                                <p class="text-[10px] text-blue-400 uppercase font-bold">Volume Total</p>
-                                <div class="flex justify-between items-end mt-1">
-                                    <span class="text-xs text-blue-500">Viagens: 42</span>
-                                    <span class="text-xl font-black text-blue-700">420 m³</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <h3 class="font-bold text-sm mb-3 uppercase tracking-wider text-slate-400">Detalhamento de Custos e Insumos</h3>
-                        <table class="w-full text-sm mb-8">
-                            <thead>
-                                <tr class="bg-slate-100 text-slate-600">
-                                    <th class="p-3 text-left">Categoria</th>
-                                    <th class="p-3 text-left">Descrição</th>
-                                    <th class="p-3 text-right">Qtd/Litros</th>
-                                    <th class="p-3 text-right">Valor (R$)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr class="border-b border-slate-100">
-                                    <td class="p-3 font-semibold">Abastecimento</td>
-                                    <td class="p-3">Diesel S10 - Posto Central</td>
-                                    <td class="p-3 text-right">450 L</td>
-                                    <td class="p-3 text-right">2.700,00</td>
-                                </tr>
-                                <tr class="border-b border-slate-100">
-                                    <td class="p-3 font-semibold">Manutenção</td>
-                                    <td class="p-3">Troca de Óleo e Filtros</td>
-                                    <td class="p-3 text-right">1 un</td>
-                                    <td class="p-3 text-right">850,00</td>
-                                </tr>
-                            </tbody>
-                            <tfoot>
-                                <tr class="bg-slate-800 text-white font-bold">
-                                    <td colspan="3" class="p-3 text-right">TOTAL DE DESPESAS</td>
-                                    <td class="p-3 text-right">R$ 3.550,00</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Modais SAE -->
-        <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div class="glass-card w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
-                <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
-                    <h3 class="text-lg font-bold">Nova Entrega de Água</h3>
-                    <button @click="showModal = false" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
-                </div>
-                <form @submit.prevent="saveEntry" class="p-6 space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1 uppercase">Data</label>
-                            <input type="date" v-model="formData.data" class="input-sae" required>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1 uppercase">Volume (m³)</label>
-                            <input type="number" step="0.1" v-model="formData.volume" class="input-sae" placeholder="Ex: 10" required>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1 uppercase">Local de Entrega</label>
-                        <input type="text" v-model="formData.local" class="input-sae" placeholder="Nome do Cliente ou Obra" required>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="p-3 bg-white/5 rounded-lg border border-white/5">
-                            <span class="block text-[10px] text-blue-400 font-bold mb-2 uppercase">Kilometragem</span>
-                            <input type="number" v-model="formData.kmInicial" class="input-sae mb-2" placeholder="Inicial" required>
-                            <input type="number" v-model="formData.kmFinal" class="input-sae" placeholder="Final" required>
-                        </div>
-                        <div class="p-3 bg-white/5 rounded-lg border border-white/5">
-                            <span class="block text-[10px] text-purple-400 font-bold mb-2 uppercase">Horímetro</span>
-                            <input type="number" step="0.1" v-model="formData.hInicial" class="input-sae mb-2" placeholder="Inicial" required>
-                            <input type="number" step="0.1" v-model="formData.hFinal" class="input-sae" placeholder="Final" required>
-                        </div>
-                    </div>
-                    <div class="pt-4 flex gap-3">
-                        <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
-                        <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">
-                            {{ submitting ? 'Salvando...' : 'Confirmar Lançamento' }}
-                        </button>
-                    </div>
-                </form>
+            <nav class="space-y-2">
+                <a v-for="item in menu" :key="item.id" @click="currentTab = item.id"
+                   :class="['flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors', currentTab === item.id ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'hover:bg-white/5 text-gray-400']">
+                    <i :data-lucide="item.icon" class="w-5 h-5"></i>
+                    <span class="font-medium">{{ item.label }}</span>
+                </a>
+            </nav>
+        </div>
+        <div class="absolute bottom-6 left-6 right-6">
+            <div class="p-4 glass-card text-xs text-gray-500">
+                <p>SAE v3.0</p>
+                <p>© 2026 Sistemas Apollo Enterprise</p>
             </div>
         </div>
+    </aside>
+
+    <main class="flex-1 md:ml-64 p-4 md:p-8">
+        <header class="flex justify-between items-center mb-8 no-print">
+            <div>
+                <h1 class="text-2xl font-bold">{{ activeMenuLabel }}</h1>
+                <p class="text-gray-400 text-sm">Operação de Caminhão Único</p>
+            </div>
+            <div class="flex gap-3">
+                <button @click="openModal(currentTab === 'financeiro' ? 'despesa' : (currentTab === 'abastecimentos' ? 'abastecimento' : 'entrega'))" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold">
+                    <i data-lucide="plus" class="w-4 h-4"></i> {{ currentTab === 'financeiro' ? 'Nova Despesa' : (currentTab === 'abastecimentos' ? 'Novo Abastecimento' : 'Nova Entrega') }}
+                </button>
+            </div>
+        </header>
+
+        <div v-if="errorMessage" class="mb-4 p-3 border border-red-500/30 bg-red-500/10 rounded-lg text-red-300 text-sm">
+            {{ errorMessage }}
+        </div>
+
+        <div v-if="loading" class="flex flex-col items-center justify-center h-64">
+            <span class="loader-google"></span>
+            <p class="mt-4 text-gray-400 animate-pulse">Sincronizando com Banco SAE...</p>
+        </div>
+
+        <div v-else>
+            <div v-if="currentTab === 'dash'" class="space-y-6">
+                <div class="glass-card p-4 no-print">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1 uppercase">Mês / Ano</label>
+                            <input type="month" v-model="filterMonth" class="input-sae min-w-[180px]">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1 uppercase">Visão</label>
+                            <select v-model="periodMode" class="input-sae min-w-[140px]">
+                                <option value="diario">Diário</option>
+                                <option value="mensal">Mensal</option>
+                            </select>
+                        </div>
+                        <button @click="reloadAll" class="btn-primary px-4 py-3 rounded-lg font-semibold">Atualizar KPIs</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div v-for="kpi in kpis" :key="kpi.label" class="glass-card p-5">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-gray-400 text-sm font-medium">{{ kpi.label }}</span>
+                            <div :class="['p-2 rounded-lg', kpi.bg]">
+                                <i :data-lucide="kpi.icon" class="w-4 h-4 text-white"></i>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold">{{ kpi.value }}</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Sessão Operacional ({{ periodModeLabel }})</h3>
+                        <p class="text-sm text-gray-300">Água: <strong>{{ fmtNum(dashboardOperational.volume) }} m³</strong></p>
+                        <p class="text-sm text-gray-300">KM rodados: <strong>{{ fmtNum(dashboardOperational.km) }} km</strong></p>
+                        <p class="text-sm text-gray-300">Horímetro: <strong>{{ fmtNum(dashboardOperational.horas) }} h</strong></p>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Sessão Abastecimento ({{ periodModeLabel }})</h3>
+                        <p class="text-sm text-gray-300">Abastecimentos: <strong>{{ fmtNum(dashboardFuel.litros) }} L</strong></p>
+                        <p class="text-sm text-gray-300">Valor pago: <strong>{{ fmtCurrency(dashboardFuel.valor) }}</strong></p>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Sessão Despesas</h3>
+                        <p v-if="dashboardDespesas.length === 0" class="text-sm text-gray-400">Sem despesas por categoria no período.</p>
+                        <ul v-else class="space-y-2 text-sm text-gray-300">
+                            <li v-for="item in dashboardDespesas" :key="item.categoria" class="flex justify-between">
+                                <span class="capitalize">{{ item.categoria }}</span>
+                                <strong>{{ fmtCurrency(item.valor) }}</strong>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">KM diários (últimos 10 dias)</h3>
+                        <canvas id="chartKm10"></canvas>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Horímetros diários (últimos 10 dias)</h3>
+                        <canvas id="chartHoras10"></canvas>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Água transportada diária (últimos 10 dias)</h3>
+                        <canvas id="chartAgua10"></canvas>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Litros abastecidos diários (últimos 10 dias)</h3>
+                        <canvas id="chartLitros10"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'operacional'" class="space-y-4">
+                <div class="glass-card overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                        <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
+                            <th class="p-4">Data</th><th class="p-4">Local</th><th class="p-4">Volume (m³)</th><th class="p-4">KM/horímetro</th><th class="p-4">Status</th><th class="p-4">Ações</th>
+                        </tr>
+                        </thead>
+                        <tbody class="text-sm">
+                        <tr v-if="entregas.length === 0"><td colspan="6" class="p-6 text-center text-gray-400">Sem entregas no período.</td></tr>
+                        <tr v-for="item in entregas" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                            <td class="p-4">{{ fmtDateBr(item.data) }}</td>
+                            <td class="p-4 font-medium">{{ item.local }}</td>
+                            <td class="p-4">{{ fmtNum(item.volume) }}m³</td>
+                            <td class="p-4 text-gray-400">{{ fmtNum(item.kmDelta) }}km | {{ fmtNum(item.hDelta) }}h</td>
+                            <td class="p-4"><span class="px-2 py-1 rounded-full text-[10px] bg-green-500/20 text-green-400 border border-green-500/30">{{ item.status }}</span></td>
+                            <td class="p-4">
+                                <div class="flex gap-2">
+                                    <button @click="openEditEntrega(item)" class="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Editar</button>
+                                    <button @click="deleteEntrega(item.id)" class="text-xs px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">Excluir</button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'financeiro'" class="space-y-4">
+                <div class="glass-card overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                        <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
+                            <th class="p-4">Data</th><th class="p-4">Categoria</th><th class="p-4">Descrição</th><th class="p-4 text-right">Valor (R$)</th><th class="p-4">Ações</th>
+                        </tr>
+                        </thead>
+                        <tbody class="text-sm">
+                        <tr v-if="despesas.length === 0"><td colspan="5" class="p-6 text-center text-gray-400">Sem despesas no período.</td></tr>
+                        <tr v-for="item in despesas" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                            <td class="p-4">{{ fmtDateBr(item.data) }}</td>
+                            <td class="p-4">{{ item.categoria }}</td>
+                            <td class="p-4">{{ item.descricao || '-' }}</td>
+                            <td class="p-4 text-right">{{ fmtCurrency(item.valor) }}</td>
+                            <td class="p-4">
+                                <div class="flex gap-2">
+                                    <button @click="openEditDespesa(item)" class="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Editar</button>
+                                    <button @click="deleteDespesa(item.id)" class="text-xs px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">Excluir</button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'abastecimentos'" class="space-y-4">
+                <div class="glass-card overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                        <tr class="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
+                            <th class="p-4">Data</th><th class="p-4">Posto</th><th class="p-4">KM/horímetro</th><th class="p-4">Litros</th><th class="p-4">R$/L</th><th class="p-4 text-right">Total (R$)</th><th class="p-4">Ações</th>
+                        </tr>
+                        </thead>
+                        <tbody class="text-sm">
+                        <tr v-if="abastecimentos.length === 0"><td colspan="7" class="p-6 text-center text-gray-400">Sem abastecimentos no período.</td></tr>
+                        <tr v-for="item in abastecimentos" :key="item.id" class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                            <td class="p-4">{{ fmtDateBr(item.data) }}</td>
+                            <td class="p-4">{{ item.posto || '-' }}</td>
+                            <td class="p-4">{{ fmtNum(item.kmAtual) }} km | {{ fmtNum(item.hAtual) }} h</td>
+                            <td class="p-4">{{ fmtNum(item.litros) }} L</td>
+                            <td class="p-4">{{ fmtCurrency(item.valorLitro) }}</td>
+                            <td class="p-4 text-right">{{ fmtCurrency(item.valorTotal) }}</td>
+                            <td class="p-4">
+                                <div class="flex gap-2">
+                                    <button @click="openEditAbastecimento(item)" class="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Editar</button>
+                                    <button @click="deleteAbastecimento(item.id)" class="text-xs px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">Excluir</button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'relatorios'" class="space-y-6">
+                <div class="glass-card p-6 no-print">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div class="flex-1 min-w-[200px]">
+                            <label class="block text-xs text-gray-400 mb-1 uppercase">Mês de Referência</label>
+                            <input type="month" v-model="filterMonth" class="input-sae">
+                        </div>
+                        <button @click="reloadAll" class="btn-primary px-6 py-2 rounded-lg font-bold">Atualizar</button>
+                        <button @click="printReport" class="bg-white text-black px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-200">
+                            <i data-lucide="printer" class="w-4 h-4"></i> Gerar PDF / Imprimir
+                        </button>
+                    </div>
+                </div>
+
+                <div id="printArea" class="glass-card p-8 bg-white text-slate-900">
+                    <div class="flex items-center gap-4 border-b-2 border-slate-200 pb-6 mb-6">
+                        <img
+                            src="https://i.ibb.co/Z622mn56/Whats-App-Image-2026-04-06-at-15-53-09.jpg"
+                            alt="Logo Transparente"
+                            class="w-16 h-16 rounded-lg object-cover border border-slate-200 shrink-0"
+                            loading="eager"
+                            referrerpolicy="no-referrer"
+                            crossorigin="anonymous"
+                        >
+                        <div class="flex-1">
+                            <h2 class="text-2xl font-black uppercase text-slate-800 leading-tight">RELATÓRIO MENSAL DE OPERAÇÃO | Transparente</h2>
+                            <p class="text-slate-500 font-medium">Contrato: Operação Pipa #001 | Período: {{ filterMonth }} | Gerado em: {{ fmtDate(relatorio.generatedAt) }}</p>
+                        </div>
+                    </div>
+
+                    <h3 class="font-bold text-sm mb-3 uppercase tracking-wider text-slate-400">Demonstrativo Operacional</h3>
+                    <div class="space-y-4 mb-8">
+                        <div class="report-block">
+                            <p class="report-title">KILOMETRAGEM</p>
+                            <p class="report-line">Inicial: {{ fmtNum(relatorio.resumo.kmInicial) }} | Fim: {{ fmtNum(relatorio.resumo.kmFinal) }}</p>
+                            <p class="report-highlight mt-1">KM rodados: {{ fmtNum(relatorio.resumo.kmTotal) }} km</p>
+                        </div>
+                        <div class="report-block">
+                            <p class="report-title">HORÍMETRO</p>
+                            <p class="report-line">Inicial: {{ fmtNum(relatorio.resumo.hInicial) }} | Fim: {{ fmtNum(relatorio.resumo.hFinal) }}</p>
+                            <p class="report-highlight mt-1">{{ fmtNum(relatorio.resumo.hTotal) }} h trabalhadas</p>
+                        </div>
+                        <div class="report-block">
+                            <p class="report-title">VOLUME TOTAL</p>
+                            <p class="report-line">Viagens: {{ relatorio.resumo.viagens }}</p>
+                            <p class="report-highlight mt-1">Volume de água transportado: {{ fmtNum(relatorio.resumo.volumeTotal) }} m³</p>
+                        </div>
+                    </div>
+
+                    <h3 class="font-bold text-sm mb-3 uppercase tracking-wider text-slate-400">Demonstrativo de Combustível</h3>
+                    <table class="w-full text-sm mb-8">
+                        <thead>
+                        <tr class="bg-slate-100 text-slate-600"><th class="p-3 text-left">Data</th><th class="p-3 text-left">Posto</th><th class="p-3 text-right">KM/horímetro</th><th class="p-3 text-right">Litros</th><th class="p-3 text-right">R$/L</th><th class="p-3 text-right">Valor Total</th></tr>
+                        </thead>
+                        <tbody>
+                        <tr v-if="relatorio.combustivel.length === 0"><td colspan="6" class="p-3 text-center text-slate-500">Sem abastecimentos registrados no período.</td></tr>
+                        <tr v-for="(abast, idx) in relatorio.combustivel" :key="idx" class="border-b border-slate-100">
+                            <td class="p-3">{{ fmtDateBr(abast.data) }}</td>
+                            <td class="p-3">{{ abast.posto }}</td>
+                            <td class="p-3 text-right">{{ fmtNum(abast.kmAtual) }} km | {{ fmtNum(abast.hAtual) }} h</td>
+                            <td class="p-3 text-right">{{ fmtNum(abast.litros) }} L</td>
+                            <td class="p-3 text-right">{{ fmtCurrency(abast.valorLitro) }}</td>
+                            <td class="p-3 text-right">{{ fmtCurrency(abast.valorTotal) }}</td>
+                        </tr>
+                        </tbody>
+                        <tfoot>
+                        <tr class="bg-slate-800 text-white font-bold"><td colspan="5" class="p-3 text-right">TOTAL COMBUSTÍVEL</td><td class="p-3 text-right">{{ fmtCurrency(relatorio.resumo.totalCombustivel) }}</td></tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="glass-card w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+                <h3 class="text-lg font-bold">{{ modalTitle }}</h3>
+                <button @click="showModal = false" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+            </div>
+            <form v-if="modalType === 'entrega'" @submit.prevent="saveEntry" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Data</label><input type="date" v-model="formData.data" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Volume (m³)</label><input type="number" step="0.1" v-model="formData.volume" class="input-sae" required></div>
+                </div>
+                <div><label class="block text-xs text-gray-400 mb-1 uppercase">Local de Entrega</label><input type="text" v-model="formData.local" class="input-sae" required></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-3 bg-white/5 rounded-lg border border-white/5"><span class="block text-[10px] text-blue-400 font-bold mb-2 uppercase">Kilometragem</span><input type="number" v-model="formData.kmInicial" class="input-sae mb-2" placeholder="Inicial" required><input type="number" v-model="formData.kmFinal" class="input-sae" placeholder="Final" required></div>
+                    <div class="p-3 bg-white/5 rounded-lg border border-white/5"><span class="block text-[10px] text-purple-400 font-bold mb-2 uppercase">Horímetro</span><input type="number" step="0.1" v-model="formData.hInicial" class="input-sae mb-2" placeholder="Inicial" required><input type="number" step="0.1" v-model="formData.hFinal" class="input-sae" placeholder="Final" required></div>
+                </div>
+                <div class="pt-4 flex gap-3">
+                    <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
+                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : (editingEntregaId ? 'Salvar Edição' : 'Confirmar Lançamento') }}</button>
+                </div>
+            </form>
+            <form v-else-if="modalType === 'despesa'" @submit.prevent="saveExpense" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Data</label><input type="date" v-model="expenseForm.data" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Categoria</label><input type="text" v-model="expenseForm.categoria" class="input-sae" placeholder="Ex: manutenção" required></div>
+                </div>
+                <div><label class="block text-xs text-gray-400 mb-1 uppercase">Descrição</label><input type="text" v-model="expenseForm.descricao" class="input-sae" placeholder="Descrição da despesa" required></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Valor (R$)</label><input type="number" step="0.01" min="0.01" v-model="expenseForm.valor" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Centro de Custo</label><input type="text" v-model="expenseForm.centro_custo" class="input-sae" placeholder="Opcional"></div>
+                </div>
+                <div class="pt-4 flex gap-3">
+                    <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
+                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : (editingDespesaId ? 'Salvar Edição' : 'Confirmar Despesa') }}</button>
+                </div>
+            </form>
+            <form v-else @submit.prevent="saveAbastecimento" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Data</label><input type="date" v-model="fuelForm.data" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Posto</label><input type="text" v-model="fuelForm.posto" class="input-sae" placeholder="Nome do posto" required></div>
+                </div>
+                <div class="grid grid-cols-4 gap-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">KM</label><input type="number" step="0.1" v-model="fuelForm.km_atual" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Horímetro</label><input type="number" step="0.1" v-model="fuelForm.h_atual" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Litros</label><input type="number" step="0.01" v-model="fuelForm.litros" class="input-sae" required></div>
+                    <div><label class="block text-xs text-gray-400 mb-1 uppercase">Valor por Litro (R$)</label><input type="number" step="0.01" v-model="fuelForm.valor_litro" class="input-sae" required></div>
+                </div>
+                <div><label class="block text-xs text-gray-400 mb-1 uppercase">Valor Total (R$)</label><input type="number" step="0.01" :value="fuelTotalCalculated" class="input-sae" readonly></div>
+                <div><label class="block text-xs text-gray-400 mb-1 uppercase">Observação</label><input type="text" v-model="fuelForm.observacao" class="input-sae" placeholder="Opcional"></div>
+                <div class="pt-4 flex gap-3">
+                    <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-lg border border-white/10 font-bold hover:bg-white/5">Cancelar</button>
+                    <button type="submit" :disabled="submitting" class="flex-1 btn-primary py-3 rounded-lg font-bold disabled:opacity-50">{{ submitting ? 'Salvando...' : (editingAbastecimentoId ? 'Salvar Edição' : 'Confirmar Abastecimento') }}</button>
+                </div>
+            </form>
+        </div>
     </div>
+</div>
 
-    <script>
-        const { createApp, ref, onMounted, computed, watch } = Vue;
+<script>
+const { createApp, ref, onMounted, computed, watch } = Vue;
 
-        createApp({
-            setup() {
-                const currentTab = ref('dash');
-                const loading = ref(true);
-                const submitting = ref(false);
-                const showModal = ref(false);
-                const filterMonth = ref('2026-04');
-                const menu = [
-                    { id: 'dash', label: 'Dashboard', icon: 'layout-dashboard' },
-                    { id: 'operacional', label: 'Operacional', icon: 'truck' },
-                    { id: 'financeiro', label: 'Despesas', icon: 'dollar-sign' },
-                    { id: 'relatorios', label: 'Relatórios', icon: 'file-text' }
-                ];
+createApp({
+    setup() {
+        const todayIsoLocal = () => {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+        const currentMonthLocal = () => todayIsoLocal().slice(0, 7);
 
-                const activeMenuLabel = computed(() => menu.find(m => m.id === currentTab.value)?.label);
+        const currentTab = ref('dash');
+        const loading = ref(true);
+        const submitting = ref(false);
+        const showModal = ref(false);
+        const modalType = ref('entrega');
+        const editingEntregaId = ref('');
+        const editingDespesaId = ref('');
+        const editingAbastecimentoId = ref('');
+        const errorMessage = ref('');
+        const filterMonth = ref(currentMonthLocal());
+        const periodMode = ref('diario');
 
-                // Mock Data
-                const entregas = ref([
-                    { id: 1, data: '2026-04-05', local: 'Condomínio Solar', volume: 10, kmInicial: 124500, kmFinal: 124540, hInicial: 4210.5, hFinal: 4212.0 },
-                    { id: 2, data: '2026-04-05', local: 'Obra Rodovia BR', volume: 15, kmInicial: 124540, kmFinal: 124600, hInicial: 4212.0, hFinal: 4214.5 },
-                    { id: 3, data: '2026-04-04', local: 'Fazenda Boa Vista', volume: 10, kmInicial: 124400, kmFinal: 124500, hInicial: 4205.0, hFinal: 4210.5 },
-                ]);
+        const menu = [
+            { id: 'dash', label: 'Dashboard', icon: 'layout-dashboard' },
+            { id: 'operacional', label: 'Operacional', icon: 'truck' },
+            { id: 'abastecimentos', label: 'Abastecimentos', icon: 'fuel' },
+            { id: 'financeiro', label: 'Despesas', icon: 'dollar-sign' },
+            { id: 'relatorios', label: 'Relatórios', icon: 'file-text' }
+        ];
 
-                const kpis = ref([
-                    { label: 'Volume Entregue', value: '420 m³', icon: 'droplet', bg: 'bg-blue-600', trend: '+12%', trendColor: 'text-green-400' },
-                    { label: 'Distância Rodada', value: '1.700 km', icon: 'map-pin', bg: 'bg-indigo-600', trend: '-5%', trendColor: 'text-green-400' },
-                    { label: 'Horas Motor', value: '170.0 h', icon: 'clock', bg: 'bg-purple-600', trend: '+8%', trendColor: 'text-red-400' },
-                    { label: 'Custo/m³', value: 'R$ 8,45', icon: 'trending-down', bg: 'bg-emerald-600', trend: '-2%', trendColor: 'text-green-400' }
-                ]);
+        const dashboard = ref({
+            totalVolume: 0,
+            totalKm: 0,
+            totalHoras: 0,
+            totalDespesas: 0,
+            custoPorM3: 0,
+            volumeSeries: { labels: [], data: [] },
+            custosPorCategoria: [],
+            operacional: { diario: { volume: 0, km: 0, horas: 0 }, mensal: { volume: 0, km: 0, horas: 0 } },
+            abastecimento: { diario: { litros: 0, valor: 0 }, mensal: { litros: 0, valor: 0 } },
+            despesasCategoria: [],
+            dailySeries: []
+        });
+        const entregas = ref([]);
+        const abastecimentos = ref([]);
+        const despesas = ref([]);
+        const relatorio = ref({
+            month: filterMonth.value,
+            generatedAt: new Date().toISOString(),
+            resumo: { viagens: 0, volumeTotal: 0, kmInicial: 0, kmFinal: 0, kmTotal: 0, hInicial: 0, hFinal: 0, hTotal: 0, totalCombustivel: 0, totalLitros: 0, mediaValorLitro: 0 },
+            combustivel: []
+        });
 
-                const formData = ref({
-                    data: new Date().toISOString().split('T')[0],
-                    volume: '',
-                    local: '',
-                    kmInicial: '',
-                    kmFinal: '',
-                    hInicial: '',
-                    hFinal: ''
-                });
+        const formData = ref({
+            data: todayIsoLocal(),
+            volume: '',
+            local: '',
+            kmInicial: '',
+            kmFinal: '',
+            hInicial: '',
+            hFinal: ''
+        });
+        const expenseForm = ref({
+            data: todayIsoLocal(),
+            categoria: '',
+            descricao: '',
+            valor: '',
+            centro_custo: ''
+        });
+        const fuelForm = ref({
+            data: todayIsoLocal(),
+            posto: '',
+            km_atual: '',
+            h_atual: '',
+            litros: '',
+            valor_litro: '',
+            observacao: ''
+        });
 
-                onMounted(() => {
-                    setTimeout(() => {
-                        loading.value = false;
-                        setTimeout(() => {
-                            initCharts();
-                            lucide.createIcons();
-                        }, 100);
-                    }, 1500);
-                });
-
-                watch(currentTab, (newTab) => {
-                    if (newTab === 'dash' && !loading.value) {
-                        setTimeout(() => initCharts(), 100);
-                    }
-                    setTimeout(() => lucide.createIcons(), 50);
-                });
-
-                function initCharts() {
-                    const ctxVol = document.getElementById('chartVolumetria');
-                    if (ctxVol) {
-                        new Chart(ctxVol, {
-                            type: 'line',
-                            data: {
-                                labels: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'],
-                                datasets: [{
-                                    label: 'Volume (m³)',
-                                    data: [80, 110, 95, 135],
-                                    borderColor: '#3b82f6',
-                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                    fill: true,
-                                    tension: 0.4
-                                }]
-                            },
-                            options: { 
-                                responsive: true,
-                                plugins: { legend: { display: false } },
-                                scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } }
-                            }
-                        });
-                    }
-
-                    const ctxCustos = document.getElementById('chartCustos');
-                    if (ctxCustos) {
-                        new Chart(ctxCustos, {
-                            type: 'doughnut',
-                            data: {
-                                labels: ['Diesel', 'Manutenção', 'Contrato', 'Outros'],
-                                datasets: [{
-                                    data: [2700, 850, 400, 150],
-                                    backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'],
-                                    borderWidth: 0
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 20 } } }
-                            }
-                        });
-                    }
-                }
-
-                function openModal(type) {
-                    showModal.value = true;
-                    setTimeout(() => lucide.createIcons(), 10);
-                }
-
-                async function saveEntry() {
-                    submitting.value = true;
-                    // Simulação de chamada Backend Google Apps Script
-                    // google.script.run.withSuccessHandler(...).saveToSheet(formData.value)
-                    
-                    setTimeout(() => {
-                        entregas.value.unshift({
-                            id: Date.now(),
-                            ...formData.value
-                        });
-                        showModal.value = false;
-                        submitting.value = false;
-                        // Reset form
-                        formData.value = { data: new Date().toISOString().split('T')[0], volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
-                    }, 1000);
-                }
-
-                function printReport() {
-                    window.print();
-                }
-
-                return {
-                    currentTab, menu, activeMenuLabel, loading, kpis, entregas,
-                    showModal, formData, submitting, filterMonth,
-                    openModal, saveEntry, printReport
-                };
+        const activeMenuLabel = computed(() => menu.find(m => m.id === currentTab.value)?.label || 'Dashboard');
+        const modalTitle = computed(() => {
+            if (modalType.value === 'despesa') {
+                return editingDespesaId.value ? 'Editar Despesa' : 'Nova Despesa';
             }
-        }).mount('#app');
-    </script>
+            if (modalType.value === 'abastecimento') {
+                return editingAbastecimentoId.value ? 'Editar Abastecimento' : 'Novo Abastecimento';
+            }
+            return editingEntregaId.value ? 'Editar Entrega de Água' : 'Nova Entrega de Água';
+        });
+        const fuelTotalCalculated = computed(() => {
+            const litros = Number(fuelForm.value.litros || 0);
+            const valorLitro = Number(fuelForm.value.valor_litro || 0);
+            return litros * valorLitro;
+        });
+        const periodModeLabel = computed(() => periodMode.value === 'diario' ? 'Diário' : 'Mensal');
+        const dashboardOperational = computed(() => dashboard.value.operacional?.[periodMode.value] || { volume: 0, km: 0, horas: 0 });
+        const dashboardFuel = computed(() => dashboard.value.abastecimento?.[periodMode.value] || { litros: 0, valor: 0 });
+        const dashboardDespesas = computed(() => dashboard.value.despesasCategoria || []);
+        const kpis = computed(() => ([
+            { label: 'Volume Entregue', value: `${fmtNum(dashboard.value.totalVolume)} m³`, icon: 'droplet', bg: 'bg-blue-600' },
+            { label: 'Distância Rodada', value: `${fmtNum(dashboard.value.totalKm)} km`, icon: 'map-pin', bg: 'bg-indigo-600' },
+            { label: 'Horas Motor', value: `${fmtNum(dashboard.value.totalHoras)} h`, icon: 'clock', bg: 'bg-purple-600' },
+            { label: 'Custo/m³', value: `R$ ${fmtNum(dashboard.value.custoPorM3)}`, icon: 'trending-down', bg: 'bg-emerald-600' }
+        ]));
+
+        onMounted(async () => {
+            await reloadAll();
+            setTimeout(() => lucide.createIcons(), 0);
+        });
+
+        watch(currentTab, (newTab) => {
+            if (newTab === 'dash') {
+                setTimeout(() => initDashboardCharts(), 80);
+            }
+            setTimeout(() => lucide.createIcons(), 50);
+        });
+
+        async function reloadAll() {
+            loading.value = true;
+            errorMessage.value = '';
+            try {
+                await runGAS('setupDatabase');
+                const resp = await runGAS('apiBootstrap', filterMonth.value);
+                if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao carregar dados iniciais');
+
+                dashboard.value = resp.data.dashboard;
+                entregas.value = resp.data.entregas;
+                abastecimentos.value = resp.data.abastecimentos || [];
+                despesas.value = resp.data.despesas;
+                relatorio.value = resp.data.relatorio;
+
+                setTimeout(() => {
+                    if (currentTab.value === 'dash') {
+                        initDashboardCharts();
+                    }
+                    lucide.createIcons();
+                }, 100);
+            } catch (err) {
+                errorMessage.value = err.message || 'Erro inesperado ao sincronizar dados.';
+            } finally {
+                loading.value = false;
+            }
+        }
+
+        function runGAS(functionName, ...args) {
+            return new Promise((resolve, reject) => {
+                if (typeof google === 'undefined' || !google.script || !google.script.run) {
+                    reject(new Error('google.script.run indisponível neste contexto.'));
+                    return;
+                }
+
+                let runner = google.script.run
+                    .withSuccessHandler(resolve)
+                    .withFailureHandler((error) => reject(new Error(error?.message || error || 'Erro GAS')));
+
+                runner[functionName](...args);
+            });
+        }
+
+        let chartKm = null;
+        let chartHoras = null;
+        let chartAgua = null;
+        let chartLitros = null;
+
+        function createBarChart(canvasId, values, labels, color) {
+            const el = document.getElementById(canvasId);
+            if (!el) return null;
+            return new Chart(el, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: color,
+                        borderRadius: 6,
+                        maxBarThickness: 24
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                        y: { display: false, grid: { display: false } }
+                    }
+                },
+                plugins: [{
+                    id: `labels-${canvasId}`,
+                    afterDatasetsDraw(chart) {
+                        const { ctx } = chart;
+                        const meta = chart.getDatasetMeta(0);
+                        ctx.save();
+                        ctx.fillStyle = '#cbd5e1';
+                        ctx.font = '11px Inter';
+                        meta.data.forEach((bar, idx) => {
+                            const value = values[idx] ?? 0;
+                            ctx.textAlign = 'center';
+                            ctx.fillText(String(value), bar.x, bar.y - 8);
+                        });
+                        ctx.restore();
+                    }
+                }]
+            });
+        }
+
+        function initDashboardCharts() {
+            const series = dashboard.value.dailySeries || [];
+            const labels = series.map((s) => s.label);
+            const km = series.map((s) => s.km);
+            const horas = series.map((s) => s.horas);
+            const agua = series.map((s) => s.agua);
+            const litros = series.map((s) => s.litros);
+
+            if (chartKm) chartKm.destroy();
+            if (chartHoras) chartHoras.destroy();
+            if (chartAgua) chartAgua.destroy();
+            if (chartLitros) chartLitros.destroy();
+
+            chartKm = createBarChart('chartKm10', km, labels, '#3b82f6');
+            chartHoras = createBarChart('chartHoras10', horas, labels, '#8b5cf6');
+            chartAgua = createBarChart('chartAgua10', agua, labels, '#14b8a6');
+            chartLitros = createBarChart('chartLitros10', litros, labels, '#f59e0b');
+        }
+
+        async function saveEntry() {
+            submitting.value = true;
+            errorMessage.value = '';
+            try {
+                const payload = {
+                    uuid: editingEntregaId.value || undefined,
+                    data: formData.value.data,
+                    volume: formData.value.volume,
+                    local: formData.value.local,
+                    kmInicial: formData.value.kmInicial,
+                    kmFinal: formData.value.kmFinal,
+                    hInicial: formData.value.hInicial,
+                    hFinal: formData.value.hFinal
+                };
+                const fn = editingEntregaId.value ? 'apiUpdateEntrega' : 'apiCreateEntrega';
+                const resp = await runGAS(fn, payload);
+                if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao salvar entrega');
+
+                showModal.value = false;
+                editingEntregaId.value = '';
+                formData.value = { data: todayIsoLocal(), volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
+                await reloadAll();
+            } catch (err) {
+                errorMessage.value = err.message || 'Erro ao salvar entrega.';
+            } finally {
+                submitting.value = false;
+            }
+        }
+
+        async function saveExpense() {
+            submitting.value = true;
+            errorMessage.value = '';
+            try {
+                const payload = {
+                    uuid: editingDespesaId.value || undefined,
+                    data: expenseForm.value.data,
+                    categoria: expenseForm.value.categoria,
+                    descricao: expenseForm.value.descricao,
+                    valor: expenseForm.value.valor,
+                    centro_custo: expenseForm.value.centro_custo
+                };
+                const fn = editingDespesaId.value ? 'apiUpdateDespesa' : 'apiCreateDespesa';
+                const resp = await runGAS(fn, payload);
+                if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao salvar despesa');
+
+                showModal.value = false;
+                editingDespesaId.value = '';
+                expenseForm.value = { data: todayIsoLocal(), categoria: '', descricao: '', valor: '', centro_custo: '' };
+                await reloadAll();
+            } catch (err) {
+                errorMessage.value = err.message || 'Erro ao salvar despesa.';
+            } finally {
+                submitting.value = false;
+            }
+        }
+
+        async function saveAbastecimento() {
+            submitting.value = true;
+            errorMessage.value = '';
+            try {
+                const payload = {
+                    uuid: editingAbastecimentoId.value || undefined,
+                    data: fuelForm.value.data,
+                    posto: fuelForm.value.posto,
+                    km_atual: fuelForm.value.km_atual,
+                    h_atual: fuelForm.value.h_atual,
+                    litros: fuelForm.value.litros,
+                    valor_total: fuelTotalCalculated.value,
+                    observacao: fuelForm.value.observacao
+                };
+                const fn = editingAbastecimentoId.value ? 'apiUpdateAbastecimento' : 'apiCreateAbastecimento';
+                const resp = await runGAS(fn, payload);
+                if (!resp.ok) throw new Error(resp?.error?.message || 'Falha ao salvar abastecimento');
+
+                showModal.value = false;
+                editingAbastecimentoId.value = '';
+                fuelForm.value = { data: todayIsoLocal(), posto: '', km_atual: '', h_atual: '', litros: '', valor_litro: '', observacao: '' };
+                await reloadAll();
+            } catch (err) {
+                errorMessage.value = err.message || 'Erro ao salvar abastecimento.';
+            } finally {
+                submitting.value = false;
+            }
+        }
+
+        function openModal(type = 'entrega') {
+            modalType.value = type;
+            editingEntregaId.value = '';
+            editingDespesaId.value = '';
+            editingAbastecimentoId.value = '';
+
+            if (type === 'entrega') {
+                formData.value = { data: todayIsoLocal(), volume: '', local: '', kmInicial: '', kmFinal: '', hInicial: '', hFinal: '' };
+                runGAS('apiGetLastEntrega').then((resp) => {
+                    if (!resp?.ok || !resp?.data) return;
+                    const km = Number(resp.data.kmFinal || 0);
+                    const h = Number(resp.data.hFinal || 0);
+                    formData.value.kmInicial = km ? String(km) : '';
+                    formData.value.hInicial = h ? String(h) : '';
+                }).catch(() => {});
+            } else {
+                expenseForm.value = { data: todayIsoLocal(), categoria: '', descricao: '', valor: '', centro_custo: '' };
+                if (type === 'abastecimento') {
+                    fuelForm.value = { data: todayIsoLocal(), posto: '', km_atual: '', h_atual: '', litros: '', valor_litro: '', observacao: '' };
+                }
+            }
+            showModal.value = true;
+            setTimeout(() => lucide.createIcons(), 10);
+        }
+
+        function openEditEntrega(item) {
+            modalType.value = 'entrega';
+            editingEntregaId.value = item.id;
+            formData.value = {
+                data: item.data,
+                volume: item.volume,
+                local: item.local,
+                kmInicial: item.kmInicial,
+                kmFinal: item.kmFinal,
+                hInicial: item.hInicial,
+                hFinal: item.hFinal
+            };
+            showModal.value = true;
+        }
+
+        function openEditDespesa(item) {
+            modalType.value = 'despesa';
+            editingDespesaId.value = item.id;
+            expenseForm.value = {
+                data: item.data,
+                categoria: item.categoria || '',
+                descricao: item.descricao || '',
+                valor: item.valor || '',
+                centro_custo: item.centroCusto || ''
+            };
+            showModal.value = true;
+        }
+
+        function openEditAbastecimento(item) {
+            modalType.value = 'abastecimento';
+            editingAbastecimentoId.value = item.id;
+            fuelForm.value = {
+                data: item.data,
+                posto: item.posto || '',
+                km_atual: item.kmAtual || '',
+                h_atual: item.hAtual || '',
+                litros: item.litros || '',
+                valor_litro: item.valorLitro || '',
+                observacao: item.observacao || ''
+            };
+            showModal.value = true;
+        }
+
+        async function deleteEntrega(uuid) {
+            if (!window.confirm('Deseja realmente excluir esta entrega?')) return;
+            const resp = await runGAS('apiDeleteEntrega', uuid);
+            if (!resp.ok) {
+                errorMessage.value = resp?.error?.message || 'Falha ao excluir entrega.';
+                return;
+            }
+            await reloadAll();
+        }
+
+        async function deleteDespesa(uuid) {
+            if (!window.confirm('Deseja realmente excluir esta despesa?')) return;
+            const resp = await runGAS('apiDeleteDespesa', uuid);
+            if (!resp.ok) {
+                errorMessage.value = resp?.error?.message || 'Falha ao excluir despesa.';
+                return;
+            }
+            await reloadAll();
+        }
+
+        async function deleteAbastecimento(uuid) {
+            if (!window.confirm('Deseja realmente excluir este abastecimento?')) return;
+            const resp = await runGAS('apiDeleteAbastecimento', uuid);
+            if (!resp.ok) {
+                errorMessage.value = resp?.error?.message || 'Falha ao excluir abastecimento.';
+                return;
+            }
+            await reloadAll();
+        }
+
+        function printReport() { window.print(); }
+        function fmtNum(v) { return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+        function fmtCurrency(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+        function fmtDate(v) {
+            if (!v) return '-';
+            const d = new Date(v);
+            return d.toLocaleDateString('pt-BR');
+        }
+        function fmtDateBr(v) {
+            if (!v) return '-';
+            const [y, m, d] = String(v).split('-');
+            if (y && m && d) return `${d}/${m}/${y}`;
+            return fmtDate(v);
+        }
+
+        return {
+            currentTab, loading, submitting, showModal, modalType, formData, expenseForm, menu,
+            fuelForm, fuelTotalCalculated, editingEntregaId, editingDespesaId, editingAbastecimentoId, modalTitle,
+            activeMenuLabel, periodMode, periodModeLabel, dashboardOperational, dashboardFuel, dashboardDespesas, kpis, entregas, abastecimentos, despesas, relatorio, filterMonth,
+            errorMessage, openModal, openEditEntrega, openEditDespesa, openEditAbastecimento, deleteEntrega, deleteDespesa, deleteAbastecimento, saveEntry, saveExpense, saveAbastecimento, printReport, reloadAll,
+            fmtNum, fmtCurrency, fmtDate, fmtDateBr
+        };
+    }
+}).mount('#app');
+</script>
 </body>
 </html>
