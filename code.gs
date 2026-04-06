@@ -4,7 +4,12 @@
  */
 
 const APP_ID = 'WATER_ERP_SAE_001';
+const SCHEMA_VERSION = '1.1.0';
 const TZ = 'America/Sao_Paulo';
+const SETUP_FLAG_KEY = 'DB_SETUP_DONE';
+const SETUP_FLAG_VERSION_KEY = 'DB_SETUP_SCHEMA_VERSION';
+const ENABLE_SHEET_LOGS_KEY = 'ENABLE_SHEET_LOGS';
+const CACHE_TTL_SECONDS = 300;
 const ENTITY_SCHEMAS = {
   entregas: [
     'uuid',
@@ -62,41 +67,61 @@ function doGet() {
  * Setup idempotente do banco SAE em Sheets.
  */
 function setupDatabase() {
-  const ss = getSpreadsheet_();
+  const props = PropertiesService.getScriptProperties();
+  const alreadySetup = props.getProperty(SETUP_FLAG_KEY) === '1';
+  const currentVersion = props.getProperty(SETUP_FLAG_VERSION_KEY);
 
-  Object.keys(ENTITY_SCHEMAS).forEach((entity) => {
-    const headers = ENTITY_SCHEMAS[entity];
-    let sheet = ss.getSheetByName(entity);
-    if (!sheet) {
-      sheet = ss.insertSheet(entity);
+  if (alreadySetup && currentVersion === SCHEMA_VERSION) {
+    return {
+      ok: true,
+      data: {
+        appId: APP_ID,
+        entities: Object.keys(ENTITY_SCHEMAS),
+        setupSkipped: true
+      }
+    };
+  }
+
+  return withWriteLock_(() => {
+    const ss = getSpreadsheet_();
+
+    Object.keys(ENTITY_SCHEMAS).forEach((entity) => {
+      const headers = ENTITY_SCHEMAS[entity];
+      let sheet = ss.getSheetByName(entity);
+      if (!sheet) {
+        sheet = ss.insertSheet(entity);
+      }
+      ensureHeaders_(sheet, headers);
+    });
+
+    let logsSheet = ss.getSheetByName('SYS_LOGS');
+    if (!logsSheet) {
+      logsSheet = ss.insertSheet('SYS_LOGS');
     }
-    ensureHeaders_(sheet, headers);
+    ensureHeaders_(logsSheet, ['timestamp', 'app_id', 'acao', 'detalhes', 'usuario']);
+
+    let metaSheet = ss.getSheetByName('SYS_META');
+    if (!metaSheet) {
+      metaSheet = ss.insertSheet('SYS_META');
+    }
+    ensureHeaders_(metaSheet, ['key', 'value', 'updated_at']);
+    upsertMeta_(metaSheet, 'app_id', APP_ID);
+    upsertMeta_(metaSheet, 'schema_version', SCHEMA_VERSION);
+    upsertMeta_(metaSheet, 'last_setup_at', nowIso_());
+
+    props.setProperty(SETUP_FLAG_KEY, '1');
+    props.setProperty(SETUP_FLAG_VERSION_KEY, SCHEMA_VERSION);
+
+    writeLog_('SETUP_DATABASE', 'Setup idempotente executado com sucesso.');
+
+    return {
+      ok: true,
+      data: {
+        appId: APP_ID,
+        entities: Object.keys(ENTITY_SCHEMAS)
+      }
+    };
   });
-
-  let logsSheet = ss.getSheetByName('SYS_LOGS');
-  if (!logsSheet) {
-    logsSheet = ss.insertSheet('SYS_LOGS');
-  }
-  ensureHeaders_(logsSheet, ['timestamp', 'app_id', 'acao', 'detalhes', 'usuario']);
-
-  let metaSheet = ss.getSheetByName('SYS_META');
-  if (!metaSheet) {
-    metaSheet = ss.insertSheet('SYS_META');
-  }
-  ensureHeaders_(metaSheet, ['key', 'value', 'updated_at']);
-  upsertMeta_(metaSheet, 'app_id', APP_ID);
-  upsertMeta_(metaSheet, 'schema_version', '1.0.0');
-  upsertMeta_(metaSheet, 'last_setup_at', nowIso_());
-
-  writeLog_('SETUP_DATABASE', 'Setup idempotente executado com sucesso.');
-
-  return {
-    ok: true,
-    data: {
-      appId: APP_ID,
-      entities: Object.keys(ENTITY_SCHEMAS)
-    }
-  };
 }
 
 function apiBootstrap(month) {
@@ -151,6 +176,7 @@ function apiCreateEntrega(payload) {
     };
 
     appendEntityRow_('entregas', row);
+    invalidateDashboardCache_(row.data_iso);
     writeLog_('CREATE_ENTREGA', `Entrega ${row.uuid} criada.`);
 
     return row;
@@ -184,6 +210,7 @@ function apiCreateAbastecimento(payload) {
     };
 
     appendEntityRow_('abastecimentos', row);
+    invalidateDashboardCache_(row.data_iso);
     writeLog_('CREATE_ABASTECIMENTO', `Abastecimento ${row.uuid} criado.`);
 
     return row;
@@ -211,6 +238,7 @@ function apiCreateDespesa(payload) {
     };
 
     appendEntityRow_('despesas', row);
+    invalidateDashboardCache_(row.data_iso);
     writeLog_('CREATE_DESPESA', `Despesa ${row.uuid} criada.`);
 
     return row;
@@ -276,6 +304,7 @@ function apiUpdateEntrega(payload) {
     };
 
     updateEntityRow_('entregas', current.rowNumber, updated);
+    invalidateDashboardCache_(updated.data_iso);
     writeLog_('UPDATE_ENTREGA', `Entrega ${uuid} atualizada.`);
     return { uuid };
   });
@@ -287,6 +316,7 @@ function apiDeleteEntrega(uuid) {
     assert_(id, 'UUID da entrega é obrigatório para exclusão.');
     const row = findEntityByUuid_('entregas', id);
     assert_(row && row.rowNumber, 'Entrega não encontrada.');
+    invalidateDashboardCache_(row.record.data_iso);
     deleteEntityRow_('entregas', row.rowNumber);
     writeLog_('DELETE_ENTREGA', `Entrega ${id} removida.`);
     return { uuid: id };
@@ -317,6 +347,7 @@ function apiUpdateDespesa(payload) {
     };
 
     updateEntityRow_('despesas', current.rowNumber, updated);
+    invalidateDashboardCache_(updated.data_iso);
     writeLog_('UPDATE_DESPESA', `Despesa ${uuid} atualizada.`);
     return { uuid };
   });
@@ -328,6 +359,7 @@ function apiDeleteDespesa(uuid) {
     assert_(id, 'UUID da despesa é obrigatório para exclusão.');
     const row = findEntityByUuid_('despesas', id);
     assert_(row && row.rowNumber, 'Despesa não encontrada.');
+    invalidateDashboardCache_(row.record.data_iso);
     deleteEntityRow_('despesas', row.rowNumber);
     writeLog_('DELETE_DESPESA', `Despesa ${id} removida.`);
     return { uuid: id };
@@ -343,7 +375,10 @@ function apiListDespesas(filters) {
 }
 
 function apiGetDashboard(month) {
-  return withApiResponse_('GET_DASHBOARD', () => buildDashboard_(sanitizeMonth_(month || currentMonth_())));
+  return withApiResponse_('GET_DASHBOARD', () => {
+    const refMonth = sanitizeMonth_(month || currentMonth_());
+    return getDashboardCached_(refMonth);
+  });
 }
 
 function apiGetRelatorioMensal(month) {
@@ -426,32 +461,38 @@ function upsertMeta_(metaSheet, key, value) {
 }
 
 function appendEntityRow_(entity, rowObject) {
-  const ss = getSpreadsheet_();
-  const headers = ENTITY_SCHEMAS[entity];
-  assert_(headers, `Entidade inválida: ${entity}`);
+  withWriteLock_(() => {
+    const ss = getSpreadsheet_();
+    const headers = ENTITY_SCHEMAS[entity];
+    assert_(headers, `Entidade inválida: ${entity}`);
 
-  const sheet = ss.getSheetByName(entity);
-  assert_(sheet, `Aba da entidade não encontrada: ${entity}`);
+    const sheet = ss.getSheetByName(entity);
+    assert_(sheet, `Aba da entidade não encontrada: ${entity}`);
 
-  const row = headers.map((header) => rowObject[header] ?? '');
-  sheet.appendRow(row);
+    const row = headers.map((header) => rowObject[header] ?? '');
+    sheet.appendRow(row);
+  });
 }
 
 function updateEntityRow_(entity, rowNumber, rowObject) {
-  const ss = getSpreadsheet_();
-  const headers = ENTITY_SCHEMAS[entity];
-  assert_(headers, `Entidade inválida: ${entity}`);
-  const sheet = ss.getSheetByName(entity);
-  assert_(sheet, `Aba da entidade não encontrada: ${entity}`);
-  const row = headers.map((header) => rowObject[header] ?? '');
-  sheet.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
+  withWriteLock_(() => {
+    const ss = getSpreadsheet_();
+    const headers = ENTITY_SCHEMAS[entity];
+    assert_(headers, `Entidade inválida: ${entity}`);
+    const sheet = ss.getSheetByName(entity);
+    assert_(sheet, `Aba da entidade não encontrada: ${entity}`);
+    const row = headers.map((header) => rowObject[header] ?? '');
+    sheet.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
+  });
 }
 
 function deleteEntityRow_(entity, rowNumber) {
-  const ss = getSpreadsheet_();
-  const sheet = ss.getSheetByName(entity);
-  assert_(sheet, `Aba da entidade não encontrada: ${entity}`);
-  sheet.deleteRow(rowNumber);
+  withWriteLock_(() => {
+    const ss = getSpreadsheet_();
+    const sheet = ss.getSheetByName(entity);
+    assert_(sheet, `Aba da entidade não encontrada: ${entity}`);
+    sheet.deleteRow(rowNumber);
+  });
 }
 
 function readEntityRows_(entity) {
@@ -588,6 +629,24 @@ function buildDashboard_(month) {
   };
 }
 
+function getDashboardCached_(month) {
+  const cache = CacheService.getScriptCache();
+  const key = `dashboard:${month}`;
+  const cached = cache.get(key);
+  if (cached) return JSON.parse(cached);
+
+  const computed = buildDashboard_(month);
+  cache.put(key, JSON.stringify(computed), CACHE_TTL_SECONDS);
+  return computed;
+}
+
+function invalidateDashboardCache_(dateValue) {
+  const cache = CacheService.getScriptCache();
+  const month = monthFromValue_(dateValue);
+  if (!month) return;
+  cache.remove(`dashboard:${month}`);
+}
+
 function buildMonthlyReport_(month) {
   const entregas = listEntregas_({ month, limit: 10000 });
   const despesas = listDespesas_({ month, limit: 10000 });
@@ -634,6 +693,13 @@ function buildMonthlyReport_(month) {
 }
 
 function writeLog_(action, details) {
+  console.log(`[${APP_ID}] ${action} | ${details}`);
+  const props = PropertiesService.getScriptProperties();
+  const enableSheetLogs = props.getProperty(ENABLE_SHEET_LOGS_KEY);
+  if (enableSheetLogs === '0') {
+    return;
+  }
+
   const ss = getSpreadsheet_();
   let logSheet = ss.getSheetByName('SYS_LOGS');
   if (!logSheet) {
@@ -642,6 +708,16 @@ function writeLog_(action, details) {
   }
 
   logSheet.appendRow([nowIso_(), APP_ID, action, details, getActiveUserEmail_()]);
+}
+
+function withWriteLock_(handler) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return handler();
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function getActiveUserEmail_() {
