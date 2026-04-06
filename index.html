@@ -67,6 +67,30 @@
             tr { page-break-inside: avoid; page-break-after: auto; }
             th, td { white-space: nowrap; }
         }
+        .report-block {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: #f8fafc;
+            line-height: 1.5;
+        }
+        .report-title {
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 0.35rem;
+        }
+        .report-line {
+            font-size: 0.95rem;
+            color: #1e293b;
+        }
+        .report-highlight {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
         .loader-google {
             width: 48px;
             height: 48px;
@@ -316,27 +340,22 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-6 mb-8">
-                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                            <p class="text-[10px] text-slate-400 uppercase font-bold">Kilometragem</p>
-                            <div class="flex justify-between items-end mt-1">
-                                <span class="text-xs text-slate-500">Inic: {{ fmtNum(relatorio.resumo.kmInicial) }} | Fim: {{ fmtNum(relatorio.resumo.kmFinal) }}</span>
-                                <span class="text-xl font-black text-slate-800">{{ fmtNum(relatorio.resumo.kmTotal) }} km</span>
-                            </div>
+                    <h3 class="font-bold text-sm mb-3 uppercase tracking-wider text-slate-400">Demonstrativo Operacional</h3>
+                    <div class="space-y-4 mb-8">
+                        <div class="report-block">
+                            <p class="report-title">KILOMETRAGEM</p>
+                            <p class="report-line">Inicial: {{ fmtNum(relatorio.resumo.kmInicial) }} | Fim: {{ fmtNum(relatorio.resumo.kmFinal) }}</p>
+                            <p class="report-highlight mt-1">KM rodados: {{ fmtNum(relatorio.resumo.kmTotal) }} km</p>
                         </div>
-                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                            <p class="text-[10px] text-slate-400 uppercase font-bold">Horímetro</p>
-                            <div class="flex justify-between items-end mt-1">
-                                <span class="text-xs text-slate-500">Inic: {{ fmtNum(relatorio.resumo.hInicial) }} | Fim: {{ fmtNum(relatorio.resumo.hFinal) }}</span>
-                                <span class="text-xl font-black text-slate-800">{{ fmtNum(relatorio.resumo.hTotal) }} h</span>
-                            </div>
+                        <div class="report-block">
+                            <p class="report-title">HORÍMETRO</p>
+                            <p class="report-line">Inicial: {{ fmtNum(relatorio.resumo.hInicial) }} | Fim: {{ fmtNum(relatorio.resumo.hFinal) }}</p>
+                            <p class="report-highlight mt-1">{{ fmtNum(relatorio.resumo.hTotal) }} h trabalhadas</p>
                         </div>
-                        <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                            <p class="text-[10px] text-blue-400 uppercase font-bold">Volume Total</p>
-                            <div class="flex justify-between items-end mt-1">
-                                <span class="text-xs text-blue-500">Viagens: {{ relatorio.resumo.viagens }}</span>
-                                <span class="text-xl font-black text-blue-700">{{ fmtNum(relatorio.resumo.volumeTotal) }} m³</span>
-                            </div>
+                        <div class="report-block">
+                            <p class="report-title">VOLUME TOTAL</p>
+                            <p class="report-line">Viagens: {{ relatorio.resumo.viagens }}</p>
+                            <p class="report-highlight mt-1">Volume de água transportado: {{ fmtNum(relatorio.resumo.volumeTotal) }} m³</p>
                         </div>
                     </div>
 
