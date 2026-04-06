@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         :root {
@@ -129,6 +130,23 @@
 
         <div v-else>
             <div v-if="currentTab === 'dash'" class="space-y-6">
+                <div class="glass-card p-4 no-print">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1 uppercase">Mês / Ano</label>
+                            <input type="month" v-model="filterMonth" class="input-sae min-w-[180px]">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1 uppercase">Visão</label>
+                            <select v-model="periodMode" class="input-sae min-w-[140px]">
+                                <option value="diario">Diário</option>
+                                <option value="mensal">Mensal</option>
+                            </select>
+                        </div>
+                        <button @click="reloadAll" class="btn-primary px-4 py-3 rounded-lg font-semibold">Atualizar KPIs</button>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div v-for="kpi in kpis" :key="kpi.label" class="glass-card p-5">
                         <div class="flex justify-between items-start mb-2">
@@ -140,9 +158,47 @@
                         <div class="text-2xl font-bold">{{ kpi.value }}</div>
                     </div>
                 </div>
-                <div class="glass-card p-6">
-                    <h3 class="font-bold mb-2">Resumo Executivo do Período</h3>
-                    <p class="text-sm text-gray-400">Painel simplificado sem gráficos, priorizando clareza operacional e financeira.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Sessão Operacional ({{ periodModeLabel }})</h3>
+                        <p class="text-sm text-gray-300">Água: <strong>{{ fmtNum(dashboardOperational.volume) }} m³</strong></p>
+                        <p class="text-sm text-gray-300">KM rodados: <strong>{{ fmtNum(dashboardOperational.km) }} km</strong></p>
+                        <p class="text-sm text-gray-300">Horímetro: <strong>{{ fmtNum(dashboardOperational.horas) }} h</strong></p>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Sessão Abastecimento ({{ periodModeLabel }})</h3>
+                        <p class="text-sm text-gray-300">Abastecimentos: <strong>{{ fmtNum(dashboardFuel.litros) }} L</strong></p>
+                        <p class="text-sm text-gray-300">Valor pago: <strong>{{ fmtCurrency(dashboardFuel.valor) }}</strong></p>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Sessão Despesas</h3>
+                        <p v-if="dashboardDespesas.length === 0" class="text-sm text-gray-400">Sem despesas por categoria no período.</p>
+                        <ul v-else class="space-y-2 text-sm text-gray-300">
+                            <li v-for="item in dashboardDespesas" :key="item.categoria" class="flex justify-between">
+                                <span class="capitalize">{{ item.categoria }}</span>
+                                <strong>{{ fmtCurrency(item.valor) }}</strong>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">KM diários (últimos 10 dias)</h3>
+                        <canvas id="chartKm10"></canvas>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Horímetros diários (últimos 10 dias)</h3>
+                        <canvas id="chartHoras10"></canvas>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Água transportada diária (últimos 10 dias)</h3>
+                        <canvas id="chartAgua10"></canvas>
+                    </div>
+                    <div class="glass-card p-5">
+                        <h3 class="font-bold mb-3">Litros abastecidos diários (últimos 10 dias)</h3>
+                        <canvas id="chartLitros10"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -391,6 +447,7 @@ createApp({
         const editingAbastecimentoId = ref('');
         const errorMessage = ref('');
         const filterMonth = ref(currentMonthLocal());
+        const periodMode = ref('diario');
 
         const menu = [
             { id: 'dash', label: 'Dashboard', icon: 'layout-dashboard' },
@@ -407,7 +464,11 @@ createApp({
             totalDespesas: 0,
             custoPorM3: 0,
             volumeSeries: { labels: [], data: [] },
-            custosPorCategoria: []
+            custosPorCategoria: [],
+            operacional: { diario: { volume: 0, km: 0, horas: 0 }, mensal: { volume: 0, km: 0, horas: 0 } },
+            abastecimento: { diario: { litros: 0, valor: 0 }, mensal: { litros: 0, valor: 0 } },
+            despesasCategoria: [],
+            dailySeries: []
         });
         const entregas = ref([]);
         const abastecimentos = ref([]);
@@ -460,6 +521,10 @@ createApp({
             const valorLitro = Number(fuelForm.value.valor_litro || 0);
             return litros * valorLitro;
         });
+        const periodModeLabel = computed(() => periodMode.value === 'diario' ? 'Diário' : 'Mensal');
+        const dashboardOperational = computed(() => dashboard.value.operacional?.[periodMode.value] || { volume: 0, km: 0, horas: 0 });
+        const dashboardFuel = computed(() => dashboard.value.abastecimento?.[periodMode.value] || { litros: 0, valor: 0 });
+        const dashboardDespesas = computed(() => dashboard.value.despesasCategoria || []);
         const kpis = computed(() => ([
             { label: 'Volume Entregue', value: `${fmtNum(dashboard.value.totalVolume)} m³`, icon: 'droplet', bg: 'bg-blue-600' },
             { label: 'Distância Rodada', value: `${fmtNum(dashboard.value.totalKm)} km`, icon: 'map-pin', bg: 'bg-indigo-600' },
@@ -473,6 +538,9 @@ createApp({
         });
 
         watch(currentTab, (newTab) => {
+            if (newTab === 'dash') {
+                setTimeout(() => initDashboardCharts(), 80);
+            }
             setTimeout(() => lucide.createIcons(), 50);
         });
 
@@ -491,6 +559,9 @@ createApp({
                 relatorio.value = resp.data.relatorio;
 
                 setTimeout(() => {
+                    if (currentTab.value === 'dash') {
+                        initDashboardCharts();
+                    }
                     lucide.createIcons();
                 }, 100);
             } catch (err) {
@@ -513,6 +584,74 @@ createApp({
 
                 runner[functionName](...args);
             });
+        }
+
+        let chartKm = null;
+        let chartHoras = null;
+        let chartAgua = null;
+        let chartLitros = null;
+
+        function createBarChart(canvasId, values, labels, color) {
+            const el = document.getElementById(canvasId);
+            if (!el) return null;
+            return new Chart(el, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: color,
+                        borderRadius: 6,
+                        maxBarThickness: 24
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                        y: { display: false, grid: { display: false } }
+                    }
+                },
+                plugins: [{
+                    id: `labels-${canvasId}`,
+                    afterDatasetsDraw(chart) {
+                        const { ctx } = chart;
+                        const meta = chart.getDatasetMeta(0);
+                        ctx.save();
+                        ctx.fillStyle = '#cbd5e1';
+                        ctx.font = '11px Inter';
+                        meta.data.forEach((bar, idx) => {
+                            const value = values[idx] ?? 0;
+                            ctx.textAlign = 'center';
+                            ctx.fillText(String(value), bar.x, bar.y - 8);
+                        });
+                        ctx.restore();
+                    }
+                }]
+            });
+        }
+
+        function initDashboardCharts() {
+            const series = dashboard.value.dailySeries || [];
+            const labels = series.map((s) => s.label);
+            const km = series.map((s) => s.km);
+            const horas = series.map((s) => s.horas);
+            const agua = series.map((s) => s.agua);
+            const litros = series.map((s) => s.litros);
+
+            if (chartKm) chartKm.destroy();
+            if (chartHoras) chartHoras.destroy();
+            if (chartAgua) chartAgua.destroy();
+            if (chartLitros) chartLitros.destroy();
+
+            chartKm = createBarChart('chartKm10', km, labels, '#3b82f6');
+            chartHoras = createBarChart('chartHoras10', horas, labels, '#8b5cf6');
+            chartAgua = createBarChart('chartAgua10', agua, labels, '#14b8a6');
+            chartLitros = createBarChart('chartLitros10', litros, labels, '#f59e0b');
         }
 
         async function saveEntry() {
@@ -716,7 +855,7 @@ createApp({
         return {
             currentTab, loading, submitting, showModal, modalType, formData, expenseForm, menu,
             fuelForm, fuelTotalCalculated, editingEntregaId, editingDespesaId, editingAbastecimentoId, modalTitle,
-            activeMenuLabel, kpis, entregas, abastecimentos, despesas, relatorio, filterMonth,
+            activeMenuLabel, periodMode, periodModeLabel, dashboardOperational, dashboardFuel, dashboardDespesas, kpis, entregas, abastecimentos, despesas, relatorio, filterMonth,
             errorMessage, openModal, openEditEntrega, openEditDespesa, openEditAbastecimento, deleteEntrega, deleteDespesa, deleteAbastecimento, saveEntry, saveExpense, saveAbastecimento, printReport, reloadAll,
             fmtNum, fmtCurrency, fmtDate, fmtDateBr
         };

@@ -666,11 +666,14 @@ function listAbastecimentos_(filters) {
 function buildDashboard_(month) {
   const entregas = listEntregas_({ month, limit: 10000 });
   const despesas = listDespesas_({ month, limit: 10000 });
+  const abastecimentos = listAbastecimentos_({ month, limit: 10000 });
 
   const totalVolume = round2_(entregas.reduce((acc, e) => acc + Number(e.volume || 0), 0));
   const totalKm = round2_(entregas.reduce((acc, e) => acc + Number(e.kmDelta || 0), 0));
   const totalHoras = round2_(entregas.reduce((acc, e) => acc + Number(e.hDelta || 0), 0));
   const totalDespesas = round2_(despesas.reduce((acc, d) => acc + Number(d.valor || 0), 0));
+  const totalLitros = round2_(abastecimentos.reduce((acc, a) => acc + Number(a.litros || 0), 0));
+  const totalAbastecimentoValor = round2_(abastecimentos.reduce((acc, a) => acc + Number(a.valorTotal || 0), 0));
   const totalViagens = entregas.length;
   const custoPorM3 = totalVolume > 0 ? round2_(totalDespesas / totalVolume) : 0;
 
@@ -692,19 +695,94 @@ function buildDashboard_(month) {
     volumeByWeek[weekIdx] += Number(e.volume || 0);
   });
 
+  const todayIso = toIsoDate_(new Date());
+  const entregaDoDia = entregas
+    .filter((e) => e.data === todayIso)
+    .reduce((acc, e) => {
+      acc.volume += Number(e.volume || 0);
+      acc.km += Number(e.kmDelta || 0);
+      acc.horas += Number(e.hDelta || 0);
+      return acc;
+    }, { volume: 0, km: 0, horas: 0 });
+
+  const abastecimentoDoDia = abastecimentos
+    .filter((a) => a.data === todayIso)
+    .reduce((acc, a) => {
+      acc.litros += Number(a.litros || 0);
+      acc.valor += Number(a.valorTotal || 0);
+      return acc;
+    }, { litros: 0, valor: 0 });
+
+  const despesasPorCategoria = despesas.reduce((acc, d) => {
+    const cat = d.categoria || 'geral';
+    acc[cat] = round2_((acc[cat] || 0) + Number(d.valor || 0));
+    return acc;
+  }, {});
+
+  const dailyMap = {};
+  entregas.forEach((e) => {
+    const key = e.data;
+    if (!dailyMap[key]) dailyMap[key] = { date: key, km: 0, horas: 0, agua: 0, litros: 0 };
+    dailyMap[key].km += Number(e.kmDelta || 0);
+    dailyMap[key].horas += Number(e.hDelta || 0);
+    dailyMap[key].agua += Number(e.volume || 0);
+  });
+  abastecimentos.forEach((a) => {
+    const key = a.data;
+    if (!dailyMap[key]) dailyMap[key] = { date: key, km: 0, horas: 0, agua: 0, litros: 0 };
+    dailyMap[key].litros += Number(a.litros || 0);
+  });
+  const dailySeries = Object.values(dailyMap)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .slice(-10)
+    .map((d) => ({
+      date: d.date,
+      label: toBrDateLabel_(d.date),
+      km: round2_(d.km),
+      horas: round2_(d.horas),
+      agua: round2_(d.agua),
+      litros: round2_(d.litros)
+    }));
+
   return {
     month,
     totalVolume,
     totalKm,
     totalHoras,
     totalDespesas,
+    totalLitros,
+    totalAbastecimentoValor,
     totalViagens,
     custoPorM3,
     custosPorCategoria,
     volumeSeries: {
       labels: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'],
       data: volumeByWeek.map((n) => round2_(n))
-    }
+    },
+    operacional: {
+      diario: {
+        volume: round2_(entregaDoDia.volume),
+        km: round2_(entregaDoDia.km),
+        horas: round2_(entregaDoDia.horas)
+      },
+      mensal: {
+        volume: totalVolume,
+        km: totalKm,
+        horas: totalHoras
+      }
+    },
+    abastecimento: {
+      diario: {
+        litros: round2_(abastecimentoDoDia.litros),
+        valor: round2_(abastecimentoDoDia.valor)
+      },
+      mensal: {
+        litros: totalLitros,
+        valor: totalAbastecimentoValor
+      }
+    },
+    despesasCategoria: Object.keys(despesasPorCategoria).map((cat) => ({ categoria: cat, valor: despesasPorCategoria[cat] })),
+    dailySeries
   };
 }
 
@@ -836,6 +914,12 @@ function toIsoDate_(value) {
 function monthFromValue_(value) {
   const iso = toIsoDate_(value);
   return iso ? iso.slice(0, 7) : '';
+}
+
+function toBrDateLabel_(isoDate) {
+  const [year, month, day] = String(isoDate || '').split('-');
+  if (!year || !month || !day) return isoDate;
+  return `${day}/${month}`;
 }
 
 function sanitizeMonth_(value) {
